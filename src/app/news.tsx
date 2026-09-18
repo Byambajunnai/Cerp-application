@@ -1,18 +1,18 @@
 import { Feather } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-
 import {
-    ActivityIndicator,
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { API_URL } from '../config/api';
 
 
 /* ============================================================
@@ -100,7 +100,7 @@ export default function NewsScreen() {
 
 
       const response = await fetch(
-        'http://localhost:3001/api/mobile/news',
+        `${API_URL}/api/mobile/news`,
         {
           method: 'GET',
 

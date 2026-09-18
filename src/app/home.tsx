@@ -1,7 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-
 import {
   ActivityIndicator,
   SafeAreaView,
@@ -11,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { API_URL } from '../config/api';
 
 
 /* ==========================================================
@@ -54,11 +54,6 @@ export default function HomeScreen() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [newsLoading, setNewsLoading] = useState(true);
 
-
-  /* ========================================================
-     NEWS API
-  ======================================================== */
-
   useEffect(() => {
 
     const loadNews = async () => {
@@ -73,7 +68,7 @@ export default function HomeScreen() {
         setNewsLoading(true);
 
         const response = await fetch(
-          'http://localhost:3001/api/mobile/news',
+           `${API_URL}/api/mobile/news`,
           {
             method: 'GET',
 
@@ -692,6 +687,7 @@ export default function HomeScreen() {
         {/* Миний */}
 
         <TouchableOpacity style={styles.navItem}>
+          
 
           <Feather
             name="user"

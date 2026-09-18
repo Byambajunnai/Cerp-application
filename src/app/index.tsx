@@ -1,6 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
+import { API_URL } from '../config/api';
 
 import {
   ActivityIndicator,
@@ -35,8 +36,8 @@ export default function LoginScreen() {
     try {
       setLoading(true);
 
-      const response = await fetch(
-        'http://localhost:3001/api/mobile/login',
+     const response = await fetch(
+       `${API_URL}/api/mobile/login`,
         {
           method: 'POST',
           headers: {
