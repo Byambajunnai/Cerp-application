@@ -73,8 +73,6 @@ export default function LoginScreen() {
       cstmNm: data.cstmNm || '',
       userId: data.userId || '',
       cstmCd: data.cstmCd || '',
-
-      // News API
       token: data.token || '',
     },
   });
