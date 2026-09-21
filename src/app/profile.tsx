@@ -1,7 +1,17 @@
-
 import { Feather } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Alert, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+import {
+  Alert,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
+import BottomNav from '../components/BottomNav';
+
 
 export default function ProfileScreen() {
 
@@ -9,11 +19,18 @@ export default function ProfileScreen() {
     userNm,
     cstmNm,
     userId,
+    token,
   } = useLocalSearchParams<{
     userNm?: string;
     cstmNm?: string;
     userId?: string;
+    token?: string;
   }>();
+
+
+  /* ============================================================
+     LOGOUT
+  ============================================================ */
 
   const handleLogout = () => {
 
@@ -28,30 +45,47 @@ export default function ProfileScreen() {
         {
           text: 'Тийм',
           style: 'destructive',
+
           onPress: () => {
 
-            // Login page рүү буцна
+            /*
+              Login page рүү буцна.
+            */
+
             router.replace('/');
 
           },
         },
       ]
     );
-
   };
 
 
+  /* ============================================================
+     UI
+  ============================================================ */
+
   return (
 
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView
+      style={styles.safeArea}
+    >
 
-      {/* ================= HEADER ================= */}
 
-      <View style={styles.header}>
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
+
+      <View
+        style={styles.header}
+      >
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() =>
+            router.back()
+          }
+          activeOpacity={0.7}
         >
 
           <Feather
@@ -63,23 +97,40 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
 
-        <Text style={styles.headerTitle}>
+        <Text
+          style={styles.headerTitle}
+        >
           Миний
         </Text>
 
 
-        <View style={styles.headerSpace} />
+        <View
+          style={styles.headerSpace}
+        />
 
       </View>
 
 
-      {/* ================= PROFILE ================= */}
+      {/* ======================================================
+          CONTENT
+      ====================================================== */}
 
-      <View style={styles.content}>
+      <View
+        style={styles.content}
+      >
 
-        <View style={styles.profileHeader}>
 
-          <View style={styles.avatar}>
+        {/* ====================================================
+            PROFILE
+        ==================================================== */}
+
+        <View
+          style={styles.profileHeader}
+        >
+
+          <View
+            style={styles.avatar}
+          >
 
             <Feather
               name="user"
@@ -90,32 +141,49 @@ export default function ProfileScreen() {
           </View>
 
 
-          <Text style={styles.profileName}>
+          <Text
+            style={styles.profileName}
+          >
             {userNm || '-'}
           </Text>
 
 
-          <Text style={styles.department}>
+          <Text
+            style={styles.department}
+          >
             {cstmNm || '-'}
           </Text>
 
         </View>
 
 
-        {/* ================= МИНИЙ МЭДЭЭЛЭЛ ================= */}
+        {/* ====================================================
+            МИНИЙ МЭДЭЭЛЭЛ
+        ==================================================== */}
 
-        <Text style={styles.sectionTitle}>
+        <Text
+          style={styles.sectionTitle}
+        >
           Миний мэдээлэл
         </Text>
 
 
-        <View style={styles.infoCard}>
+        <View
+          style={styles.infoCard}
+        >
 
-          {/* ХУВИЙН ДУГААР */}
 
-          <View style={styles.infoRow}>
+          {/* ================================
+              ХУВИЙН ДУГААР
+          ================================ */}
 
-            <View style={styles.iconBox}>
+          <View
+            style={styles.infoRow}
+          >
+
+            <View
+              style={styles.iconBox}
+            >
 
               <Feather
                 name="credit-card"
@@ -126,13 +194,20 @@ export default function ProfileScreen() {
             </View>
 
 
-            <View style={styles.infoContent}>
+            <View
+              style={styles.infoContent}
+            >
 
-              <Text style={styles.label}>
+              <Text
+                style={styles.label}
+              >
                 Хувийн дугаар
               </Text>
 
-              <Text style={styles.value}>
+
+              <Text
+                style={styles.value}
+              >
                 {userId || '-'}
               </Text>
 
@@ -141,14 +216,22 @@ export default function ProfileScreen() {
           </View>
 
 
-          <View style={styles.divider} />
+          <View
+            style={styles.divider}
+          />
 
 
-          {/* НЭР */}
+          {/* ================================
+              НЭР
+          ================================ */}
 
-          <View style={styles.infoRow}>
+          <View
+            style={styles.infoRow}
+          >
 
-            <View style={styles.iconBox}>
+            <View
+              style={styles.iconBox}
+            >
 
               <Feather
                 name="user"
@@ -159,13 +242,20 @@ export default function ProfileScreen() {
             </View>
 
 
-            <View style={styles.infoContent}>
+            <View
+              style={styles.infoContent}
+            >
 
-              <Text style={styles.label}>
+              <Text
+                style={styles.label}
+              >
                 Нэр
               </Text>
 
-              <Text style={styles.value}>
+
+              <Text
+                style={styles.value}
+              >
                 {userNm || '-'}
               </Text>
 
@@ -174,14 +264,59 @@ export default function ProfileScreen() {
           </View>
 
 
-          <View style={styles.divider} />
+          <View
+            style={styles.divider}
+          />
 
 
-         
+          {/* ================================
+              БАЙГУУЛЛАГА / ХЭЛТЭС
+          ================================ */}
+
+          <View
+            style={styles.infoRow}
+          >
+
+            <View
+              style={styles.iconBox}
+            >
+
+              <Feather
+                name="briefcase"
+                size={20}
+                color="#428CE5"
+              />
+
+            </View>
+
+
+            <View
+              style={styles.infoContent}
+            >
+
+              <Text
+                style={styles.label}
+              >
+                Байгууллага / нэгж
+              </Text>
+
+
+              <Text
+                style={styles.value}
+              >
+                {cstmNm || '-'}
+              </Text>
+
+            </View>
+
+          </View>
+
         </View>
 
 
-        {/* ================= ГАРАХ ================= */}
+        {/* ====================================================
+            LOGOUT
+        ==================================================== */}
 
         <TouchableOpacity
           style={styles.logoutButton}
@@ -195,21 +330,46 @@ export default function ProfileScreen() {
             color="#E5484D"
           />
 
-          <Text style={styles.logoutText}>
+
+          <Text
+            style={styles.logoutText}
+          >
             Системээс гарах
           </Text>
 
         </TouchableOpacity>
 
+
       </View>
 
-    </SafeAreaView>
 
+      {/* ======================================================
+          COMMON BOTTOM NAV
+      ====================================================== */}
+
+      <BottomNav
+        active="profile"
+        userNm={userNm}
+        cstmNm={cstmNm}
+        userId={userId}
+        token={token}
+      />
+
+
+    </SafeAreaView>
   );
 }
 
 
+/* ============================================================
+   STYLE
+============================================================ */
+
 const styles = StyleSheet.create({
+
+  /* ========================================================
+     PAGE
+  ======================================================== */
 
   safeArea: {
     flex: 1,
@@ -217,7 +377,9 @@ const styles = StyleSheet.create({
   },
 
 
-  /* HEADER */
+  /* ========================================================
+     HEADER
+  ======================================================== */
 
   header: {
     height: 60,
@@ -232,23 +394,20 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E8ECF2',
   },
 
- backButton: {
 
-    width: 30,
-
+  backButton: {
+    width: 40,
     height: 40,
 
+    alignItems: 'flex-start',
     justifyContent: 'center',
-
-    marginRight: 3,
-
   },
-
 
 
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
+
     color: '#273248',
   },
 
@@ -258,19 +417,25 @@ const styles = StyleSheet.create({
   },
 
 
-  /* CONTENT */
+  /* ========================================================
+     CONTENT
+  ======================================================== */
 
   content: {
     flex: 1,
+
     paddingHorizontal: 25,
     paddingTop: 28,
   },
 
 
-  /* PROFILE */
+  /* ========================================================
+     PROFILE
+  ======================================================== */
 
   profileHeader: {
     alignItems: 'center',
+
     marginBottom: 35,
   },
 
@@ -293,12 +458,19 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 21,
     fontWeight: '700',
+
     color: '#273248',
+
+    textAlign: 'center',
   },
 
 
   department: {
+    maxWidth: 280,
+
     fontSize: 11,
+    lineHeight: 16,
+
     color: '#8B95A5',
 
     marginTop: 5,
@@ -307,7 +479,9 @@ const styles = StyleSheet.create({
   },
 
 
-  /* INFORMATION */
+  /* ========================================================
+     INFORMATION
+  ======================================================== */
 
   sectionTitle: {
     fontSize: 18,
@@ -328,6 +502,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
 
     paddingHorizontal: 15,
+
+    overflow: 'hidden',
   },
 
 
@@ -356,11 +532,14 @@ const styles = StyleSheet.create({
 
   infoContent: {
     flex: 1,
+
+    paddingVertical: 12,
   },
 
 
   label: {
     fontSize: 11,
+
     color: '#8B95A5',
 
     marginBottom: 4,
@@ -368,7 +547,9 @@ const styles = StyleSheet.create({
 
 
   value: {
-    fontSize: 15,
+    fontSize: 14,
+    lineHeight: 19,
+
     fontWeight: '600',
 
     color: '#273248',
@@ -377,11 +558,14 @@ const styles = StyleSheet.create({
 
   divider: {
     height: 1,
+
     backgroundColor: '#EEF1F5',
   },
 
 
-  /* LOGOUT */
+  /* ========================================================
+     LOGOUT
+  ======================================================== */
 
   logoutButton: {
     height: 52,
@@ -411,4 +595,3 @@ const styles = StyleSheet.create({
   },
 
 });
-
