@@ -686,7 +686,21 @@ export default function HomeScreen() {
 
         {/* Миний */}
 
-        <TouchableOpacity style={styles.navItem}>
+       <TouchableOpacity
+          style={styles.navItem}
+          activeOpacity={0.7}
+          onPress={() =>
+            router.push({
+              pathname: '/profile',
+              params: {
+                userNm: userNm || '',
+                userId: userId || '',
+                cstmNm: cstmNm || '',
+                token: token || '',
+              },
+            })
+          }
+        >
           
 
           <Feather
@@ -696,7 +710,7 @@ export default function HomeScreen() {
           />
 
           <Text style={styles.navText}>
-            Миний
+            Профайл
           </Text>
 
         </TouchableOpacity>
@@ -709,11 +723,6 @@ export default function HomeScreen() {
 
   );
 }
-
-
-/* ==========================================================
-   STYLES
-========================================================== */
 
 const styles = StyleSheet.create({
 
