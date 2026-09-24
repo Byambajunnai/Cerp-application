@@ -30,7 +30,7 @@ const requestTypes: RequestType[] = [
     icon: 'tool',
     color: '#1677FF',
     background: '#EAF3FF',
-    route: '/technical-request',
+    route: '/tech-support',
   },
   {
     title: 'Программын өөрчлөлтийн хүсэлт',
@@ -53,13 +53,14 @@ const requestTypes: RequestType[] = [
 ];
 
 export default function RequestScreen() {
-  const { userNm, cstmNm, userId, token } =
-    useLocalSearchParams<{
-      userNm?: string;
-      cstmNm?: string;
-      userId?: string;
-      token?: string;
-    }>();
+ const { userNm, cstmNm, userId, token, roles } =
+  useLocalSearchParams<{
+    userNm?: string;
+    cstmNm?: string;
+    userId?: string;
+    token?: string;
+    roles?: string;
+  }>();
 
   const openRequest = (route: string) => {
     router.push({
@@ -69,6 +70,7 @@ export default function RequestScreen() {
         cstmNm,
         userId,
         token,
+        roles,
       },
     });
   };
@@ -89,6 +91,7 @@ export default function RequestScreen() {
                   cstmNm,
                   userId,
                   token,
+                  roles,
                 },
               });
             }

@@ -36,6 +36,8 @@ export default function LoginScreen() {
     try {
       setLoading(true);
 
+      
+
      const response = await fetch(
        `${API_URL}/api/mobile/login`,
         {
@@ -63,8 +65,14 @@ export default function LoginScreen() {
         throw new Error('Сервер JSON бус хариу буцаалаа.');
       }
 
-     if (response.ok) {
+    if (response.ok) {
   console.log('Login амжилттай');
+
+  const roles = Array.isArray(data.roles)
+    ? data.roles
+    : [];
+
+  console.log('ROLES:', roles);
 
   router.replace({
     pathname: '/home',
@@ -74,6 +82,9 @@ export default function LoginScreen() {
       userId: data.userId || '',
       cstmCd: data.cstmCd || '',
       token: data.token || '',
+
+      // Эрхүүдийг route-аар дамжуулна
+      roles: JSON.stringify(roles),
     },
   });
 } else {

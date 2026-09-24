@@ -1,6 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
+
 import {
   ActivityIndicator,
   SafeAreaView,
@@ -10,12 +11,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
+import BottomNav from '../components/BottomNav';
 import { API_URL } from '../config/api';
 
-
-/* ==========================================================
+/* ============================================================
    NEWS TYPE
-========================================================== */
+============================================================ */
 
 type NewsItem = {
   newsId: number;
@@ -28,24 +30,25 @@ type NewsItem = {
 };
 
 
-/* ==========================================================
+/* ============================================================
    HOME
-========================================================== */
+============================================================ */
 
 export default function HomeScreen() {
 
   const {
-    userNm,
-    cstmNm,
-    userId,
-    token,
-  } = useLocalSearchParams<{
-    userNm?: string;
-    cstmNm?: string;
-    userId?: string;
-    token?: string;
-  }>();
-
+  userNm,
+  cstmNm,
+  userId,
+  token,
+  roles,
+} = useLocalSearchParams<{
+  userNm?: string;
+  cstmNm?: string;
+  userId?: string;
+  token?: string;
+  roles?: string;
+}>();
 
   /* ========================================================
      NEWS STATE
@@ -53,6 +56,11 @@ export default function HomeScreen() {
 
   const [news, setNews] = useState<NewsItem[]>([]);
   const [newsLoading, setNewsLoading] = useState(true);
+
+
+  /* ========================================================
+     NEWS API
+  ======================================================== */
 
   useEffect(() => {
 
@@ -68,10 +76,9 @@ export default function HomeScreen() {
         setNewsLoading(true);
 
         const response = await fetch(
-           `${API_URL}/api/mobile/news`,
+          `${API_URL}/api/mobile/news?page=1&pageSize=3`,
           {
             method: 'GET',
-
             headers: {
               Authorization: `Bearer ${token}`,
               Accept: 'application/json',
@@ -87,23 +94,25 @@ export default function HomeScreen() {
           data = text ? JSON.parse(text) : {};
         } catch {
           console.error('Home News JSON parse error');
+          setNews([]);
           return;
         }
 
-        if (response.ok && Array.isArray(data.items)) {
-
-          // API-аас ирсэн эхний 3 мэдээ
+        if (
+          response.ok &&
+          Array.isArray(data.items)
+        ) {
           setNews(data.items.slice(0, 3));
-
         } else {
-
           setNews([]);
-
         }
 
       } catch (error) {
 
-        console.error('Home News API error:', error);
+        console.error(
+          'Home News API error:',
+          error
+        );
 
         setNews([]);
 
@@ -115,10 +124,64 @@ export default function HomeScreen() {
 
     };
 
-
     loadNews();
 
   }, [token]);
+
+
+  /* ========================================================
+     COMMON PARAMS
+  ======================================================== */
+
+  const commonParams = {
+  userNm: userNm || '',
+  cstmNm: cstmNm || '',
+  userId: userId || '',
+  token: token || '',
+  roles: roles || '[]',
+};
+
+
+  /* ========================================================
+     ROUTES
+  ======================================================== */
+
+  const goNews = () => {
+    router.push({
+      pathname: '/news',
+      params: commonParams,
+    });
+  };
+
+
+  const goNewsDetail = (item: NewsItem) => {
+    router.push({
+      pathname: '/news-detail',
+      params: {
+        ...commonParams,
+        newsId: String(item.newsId),
+        newsFileId: String(
+          item.newsFileId || ''
+        ),
+      },
+    });
+  };
+
+
+  const goRequest = () => {
+    router.push({
+      pathname: '/request',
+      params: commonParams,
+    });
+  };
+
+
+  const goAttendance = () => {
+    router.push({
+      pathname: '/attendance',
+      params: commonParams,
+    });
+  };
 
 
   /* ========================================================
@@ -129,8 +192,9 @@ export default function HomeScreen() {
 
     <SafeAreaView style={styles.safeArea}>
 
-
-      {/* ================= ҮНДСЭН CONTENT ================= */}
+      {/* ====================================================
+          SCROLL CONTENT
+      ==================================================== */}
 
       <ScrollView
         style={styles.scroll}
@@ -138,34 +202,28 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
 
-
-        {/* ================= PROFILE ================= */}
+        {/* ==================================================
+            PROFILE
+        ================================================== */}
 
         <View style={styles.profileRow}>
-
-
-          {/* Avatar */}
 
           <View style={styles.avatar}>
 
             <Feather
               name="user"
-              size={34}
-              color="#777777"
+              size={30}
+              color="#7B9BD0"
             />
 
           </View>
 
 
-          {/* API USER INFO */}
-
           <View style={styles.profileInfo}>
-
 
             <Text style={styles.userId}>
               {userId || ''}
             </Text>
-
 
             <Text
               style={styles.userName}
@@ -174,7 +232,6 @@ export default function HomeScreen() {
               {userNm || ''}
             </Text>
 
-
             <Text
               style={styles.department}
               numberOfLines={2}
@@ -182,11 +239,8 @@ export default function HomeScreen() {
               {cstmNm || ''}
             </Text>
 
-
           </View>
 
-
-          {/* Notification */}
 
           <TouchableOpacity
             style={styles.notification}
@@ -195,37 +249,37 @@ export default function HomeScreen() {
 
             <Feather
               name="bell"
-              size={29}
-              color="#2E8BDD"
+              size={25}
+              color="#428CE5"
             />
 
             <View style={styles.notificationDot} />
 
           </TouchableOpacity>
 
-
         </View>
 
 
-        {/* ================= ИРЦ ================= */}
+        {/* ==================================================
+            ИРЦ
+        ================================================== */}
 
-        <View style={styles.attendanceCard}>
-
-
-          {/* Clock */}
+        <TouchableOpacity
+          style={styles.attendanceCard}
+          activeOpacity={0.85}
+          onPress={goAttendance}
+        >
 
           <View style={styles.clockCircle}>
 
             <Feather
               name="clock"
-              size={29}
+              size={27}
               color="#FFFFFF"
             />
 
           </View>
 
-
-          {/* Date */}
 
           <View style={styles.dateBlock}>
 
@@ -240,10 +294,10 @@ export default function HomeScreen() {
           </View>
 
 
-          {/* Times */}
+          <View style={styles.timeDivider} />
+
 
           <View style={styles.times}>
-
 
             <View style={styles.timeRow}>
 
@@ -270,206 +324,249 @@ export default function HomeScreen() {
 
             </View>
 
-
           </View>
 
+        </TouchableOpacity>
 
-        </View>
 
-
-        {/* ================= ХҮСЭЛТ ================= */}
+        {/* ==================================================
+            ХҮСЭЛТ HEADER
+        ================================================== */}
 
         <View style={styles.sectionHeader}>
 
           <Text style={styles.sectionTitle}>
             Хүсэлт
           </Text>
+
           <TouchableOpacity
-            onPress={() =>
-              router.push({
-                pathname: '/request',
-                params: {
-                  userNm,
-                  cstmNm,
-                  userId,
-                  token,
-                },
-              })
-            }
+            onPress={goRequest}
+            activeOpacity={0.7}
           >
-            <Text style={styles.seeAll}>
-              Цааш үзэх
-            </Text>
+
+            <View style={styles.seeAllRow}>
+
+              <Text style={styles.seeAll}>
+                Цааш үзэх
+              </Text>
+
+              <Feather
+                name="arrow-right"
+                size={15}
+                color="#428CE5"
+              />
+
+            </View>
 
           </TouchableOpacity>
 
         </View>
 
 
-        {/* ================= REQUEST MENU ================= */}
+        {/* ==================================================
+            ХҮСЭЛТ CARD
+        ================================================== */}
 
-        <View style={styles.requestCard}>
+        <View style={styles.requestContainer}>
 
 
-          {/* Техникийн тусламж */}
+          {/* ТЕХНИКИЙН ТУСЛАМЖ */}
 
           <TouchableOpacity
-            style={styles.requestItem}
-            activeOpacity={0.75}
+            style={[
+              styles.requestItem,
+              styles.requestBlue,
+            ]}
+            activeOpacity={0.8}
+            onPress={goRequest}
           >
 
             <View
               style={[
                 styles.requestIcon,
-                {
-                  backgroundColor: '#EAF4FF',
-                },
+                styles.requestIconBlue,
               ]}
             >
 
               <Feather
-                name="arrow-up-right"
-                size={32}
-                color="#5797ED"
+                name="tool"
+                size={26}
+                color="#2478EE"
               />
 
             </View>
 
-
-            <Text style={styles.requestText}>
+            <Text style={styles.requestTitle}>
               Техникийн{'\n'}тусламж
             </Text>
 
+            <Text
+              style={styles.requestDescription}
+              numberOfLines={3}
+            >
+              Техник, төхөөрөмжийн тусламж хүсэх
+            </Text>
 
-            <Feather
-              name="arrow-right"
-              size={18}
-              color="#5797ED"
-            />
+            <View
+              style={[
+                styles.requestArrow,
+                styles.requestArrowBlue,
+              ]}
+            >
+              <Feather
+                name="arrow-right"
+                size={18}
+                color="#2478EE"
+              />
+            </View>
 
           </TouchableOpacity>
 
 
-          {/* Програмын өөрчлөлт */}
+          {/* ПРОГРАМЫН ӨӨРЧЛӨЛТ */}
 
           <TouchableOpacity
-            style={styles.requestItem}
-            activeOpacity={0.75}
+            style={[
+              styles.requestItem,
+              styles.requestPurple,
+            ]}
+            activeOpacity={0.8}
+            onPress={goRequest}
           >
 
             <View
               style={[
                 styles.requestIcon,
-                {
-                  backgroundColor: '#F1EEFF',
-                },
+                styles.requestIconPurple,
               ]}
             >
 
               <Feather
                 name="file-text"
-                size={30}
-                color="#7D63F5"
+                size={26}
+                color="#7956EE"
               />
 
             </View>
 
-
-            <Text style={styles.requestText}>
+            <Text style={styles.requestTitle}>
               Програмын{'\n'}өөрчлөлт
             </Text>
 
+            <Text
+              style={styles.requestDescription}
+              numberOfLines={3}
+            >
+              Системийн шинэчлэлт, өөрчлөлт хүсэх
+            </Text>
 
-            <Feather
-              name="arrow-right"
-              size={18}
-              color="#7D63F5"
-            />
+            <View
+              style={[
+                styles.requestArrow,
+                styles.requestArrowPurple,
+              ]}
+            >
+              <Feather
+                name="arrow-right"
+                size={18}
+                color="#7956EE"
+              />
+            </View>
 
           </TouchableOpacity>
 
 
-          {/* Амралт */}
+          {/* АМРАЛТ, ЧӨЛӨӨ */}
 
           <TouchableOpacity
-            style={styles.requestItem}
-            activeOpacity={0.75}
+            style={[
+              styles.requestItem,
+              styles.requestGreen,
+            ]}
+            activeOpacity={0.8}
+            onPress={goRequest}
           >
 
             <View
               style={[
                 styles.requestIcon,
-                {
-                  backgroundColor: '#EAF9F2',
-                },
+                styles.requestIconGreen,
               ]}
             >
 
               <Feather
                 name="send"
-                size={31}
-                color="#4DB98B"
+                size={26}
+                color="#169B69"
               />
 
             </View>
 
-
-            <Text style={styles.requestText}>
+            <Text style={styles.requestTitle}>
               Амралт, чөлөө{'\n'}Томилолт
             </Text>
 
+            <Text
+              style={styles.requestDescription}
+              numberOfLines={3}
+            >
+              Амралт, чөлөө болон томилолтын хүсэлт
+            </Text>
 
-            <Feather
-              name="arrow-right"
-              size={18}
-              color="#4DB98B"
-            />
+            <View
+              style={[
+                styles.requestArrow,
+                styles.requestArrowGreen,
+              ]}
+            >
+              <Feather
+                name="arrow-right"
+                size={18}
+                color="#169B69"
+              />
+            </View>
 
           </TouchableOpacity>
-
 
         </View>
 
 
         {/* ==================================================
-            МЭДЭЭ МЭДЭЭЛЭЛ
+            NEWS HEADER
         ================================================== */}
 
         <View style={styles.newsHeader}>
-
 
           <Text style={styles.sectionTitle}>
             Мэдээ мэдээлэл
           </Text>
 
-
           <TouchableOpacity
-            onPress={() =>
-              router.push({
-                pathname: '/news',
-
-                params: {
-                  userNm: userNm || '',
-                  cstmNm: cstmNm || '',
-                  userId: userId || '',
-                  token: token || '',
-                },
-              })
-            }
+            onPress={goNews}
+            activeOpacity={0.7}
           >
 
-            <Text style={styles.seeAll}>
-              Цааш үзэх
-            </Text>
+            <View style={styles.seeAllRow}>
+
+              <Text style={styles.seeAll}>
+                Цааш үзэх
+              </Text>
+
+              <Feather
+                name="arrow-right"
+                size={15}
+                color="#428CE5"
+              />
+
+            </View>
 
           </TouchableOpacity>
-
 
         </View>
 
 
         {/* ==================================================
-            NEWS LOADING
+            NEWS
         ================================================== */}
 
         {newsLoading ? (
@@ -493,7 +590,7 @@ export default function HomeScreen() {
 
             <Feather
               name="file-text"
-              size={28}
+              size={27}
               color="#B0BAC8"
             />
 
@@ -504,43 +601,57 @@ export default function HomeScreen() {
           </View>
 
         ) : (
-          news.map((item) => (
+
+          news.map((item, index) => (
 
             <TouchableOpacity
               key={item.newsId}
               style={styles.newsCard}
               activeOpacity={0.8}
-
               onPress={() =>
-                router.push({
-                  pathname: '/news-detail',
-
-                  params: {
-                    newsId: String(item.newsId),
-
-                    newsFileId: String(
-                      item.newsFileId || ''
-                    ),
-
-                    userNm: userNm || '',
-                    cstmNm: cstmNm || '',
-                    userId: userId || '',
-                    token: token || '',
-                  },
-                })
+                goNewsDetail(item)
               }
             >
 
+              <View
+                style={[
+                  styles.newsAccent,
+                  index === 0
+                    ? styles.newsAccentBlue
+                    : index === 1
+                    ? styles.newsAccentPurple
+                    : styles.newsAccentGreen,
+                ]}
+              />
 
-              {/* ШАР ЗУРААС */}
 
-              <View style={styles.yellowLine} />
+              <View
+                style={[
+                  styles.newsIcon,
+                  index === 0
+                    ? styles.newsIconBlue
+                    : index === 1
+                    ? styles.newsIconPurple
+                    : styles.newsIconGreen,
+                ]}
+              >
+
+                <Feather
+                  name="file-text"
+                  size={20}
+                  color={
+                    index === 0
+                      ? '#428CE5'
+                      : index === 1
+                      ? '#7956EE'
+                      : '#35A875'
+                  }
+                />
+
+              </View>
 
 
               <View style={styles.newsBody}>
-
-
-                {/* NEWS TITLE */}
 
                 <Text
                   style={styles.newsTitle}
@@ -549,20 +660,14 @@ export default function HomeScreen() {
                   {item.newsTitle}
                 </Text>
 
-
-                {/* NEWS META */}
-
                 <View style={styles.newsMeta}>
-
-
-                  {/* DATE */}
 
                   <View style={styles.newsDateRow}>
 
                     <Feather
                       name="calendar"
-                      size={14}
-                      color="#606A7C"
+                      size={11}
+                      color="#8290A5"
                     />
 
                     <Text style={styles.newsDate}>
@@ -571,9 +676,6 @@ export default function HomeScreen() {
 
                   </View>
 
-
-                  {/* AUTHOR */}
-
                   <Text
                     style={styles.author}
                     numberOfLines={1}
@@ -581,12 +683,9 @@ export default function HomeScreen() {
                     Үүсгэсэн: {item.newsAuthor}
                   </Text>
 
-
                 </View>
 
-
               </View>
-
 
             </TouchableOpacity>
 
@@ -594,130 +693,21 @@ export default function HomeScreen() {
 
         )}
 
-
       </ScrollView>
 
 
-      {/* ================= BOTTOM NAV ================= */}
+      {/* ====================================================
+           BottomNav COMPONENT
+      ==================================================== */}
 
-      <View style={styles.bottomNav}>
-
-
-        {/* Нүүр */}
-
-        <TouchableOpacity style={styles.navItem}>
-
-          <Feather
-            name="grid"
-            size={24}
-            color="#428CE5"
-          />
-
-          <Text style={styles.activeNav}>
-            Нүүр
-          </Text>
-
-        </TouchableOpacity>
-
-
-        {/* Хүсэлт */}
-
-        <TouchableOpacity style={styles.navItem}>
-
-          <Feather
-            name="edit-3"
-            size={22}
-            color="#94A3B8"
-          />
-
-          <Text style={styles.navText}>
-            Хүсэлт
-          </Text>
-
-        </TouchableOpacity>
-
-
-        {/* PLUS */}
-
-        <TouchableOpacity
-          style={styles.plusButton}
-          activeOpacity={0.8}
-        >
-
-          <Feather
-            name="plus"
-            size={31}
-            color="#FFFFFF"
-          />
-
-        </TouchableOpacity>
-
-
-        {/* Мэдээ */}
-
-        <TouchableOpacity
-          style={styles.navItem}
-
-          onPress={() =>
-            router.push({
-              pathname: '/news',
-
-              params: {
-                userNm: userNm || '',
-                cstmNm: cstmNm || '',
-                userId: userId || '',
-                token: token || '',
-              },
-            })
-          }
-        >
-
-          <Feather
-            name="book-open"
-            size={22}
-            color="#94A3B8"
-          />
-
-          <Text style={styles.navText}>
-            Мэдээ
-          </Text>
-
-        </TouchableOpacity>
-
-
-        {/* Миний */}
-
-       <TouchableOpacity
-          style={styles.navItem}
-          activeOpacity={0.7}
-          onPress={() =>
-            router.push({
-              pathname: '/profile',
-              params: {
-                userNm: userNm || '',
-                userId: userId || '',
-                cstmNm: cstmNm || '',
-                token: token || '',
-              },
-            })
-          }
-        >
-          
-
-          <Feather
-            name="user"
-            size={22}
-            color="#94A3B8"
-          />
-
-          <Text style={styles.navText}>
-            Профайл
-          </Text>
-
-        </TouchableOpacity>
-
-
-      </View>
+   
+<BottomNav
+  active="home"
+  userNm={userNm}
+  cstmNm={cstmNm}
+  userId={userId}
+  token={token}
+/>
 
 
     </SafeAreaView>
@@ -725,27 +715,29 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
 
+/* ============================================================
+   STYLE
+============================================================ */
+
+const styles = StyleSheet.create({
 
   /* PAGE */
 
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F7F9FD',
   },
-
 
   scroll: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F7F9FD',
   },
 
-
   content: {
-    paddingHorizontal: 27,
-    paddingTop: 15,
-    paddingBottom: 35,
+    paddingHorizontal: 22,
+    paddingTop: 8,
+    paddingBottom: 30,
   },
 
 
@@ -754,109 +746,98 @@ const styles = StyleSheet.create({
   ======================================================== */
 
   profileRow: {
-
-    minHeight: 125,
+    minHeight: 120,
 
     flexDirection: 'row',
     alignItems: 'center',
 
-    paddingHorizontal: 7,
-
+    paddingHorizontal: 5,
   },
 
-
   avatar: {
+    width: 60,
+    height: 60,
 
-    width: 52,
-    height: 58,
+    borderRadius: 30,
 
-    borderRadius: 10,
-
-    backgroundColor: '#F1F2F4',
+    backgroundColor: '#EAF1FC',
 
     alignItems: 'center',
     justifyContent: 'center',
 
-    marginRight: 13,
-
+    marginRight: 15,
   },
-
 
   profileInfo: {
     flex: 1,
   },
 
-
   userId: {
+    fontSize: 13,
+    fontWeight: '700',
 
-    fontSize: 14,
+    color: '#22324D',
 
-    fontWeight: '500',
-
-    color: '#202020',
-
-    marginBottom: 1,
-
+    marginBottom: 2,
   },
 
-
   userName: {
-
-    fontSize: 19,
-
+    fontSize: 20,
     fontWeight: '700',
 
     color: '#428CE5',
-
   },
 
-
   department: {
+    fontSize: 10.5,
+    lineHeight: 15,
 
-    fontSize: 10,
-
-    lineHeight: 14,
-
-    color: '#8B95A5',
+    color: '#7E8A9D',
 
     marginTop: 5,
 
-    maxWidth: 210,
-
+    maxWidth: 220,
   },
 
-
   notification: {
+    width: 44,
+    height: 44,
 
-    width: 50,
-    height: 55,
+    borderRadius: 22,
+
+    backgroundColor: '#FFFFFF',
 
     alignItems: 'center',
     justifyContent: 'center',
 
     position: 'relative',
 
+    shadowColor: '#344054',
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.06,
+    shadowRadius: 7,
+
+    elevation: 2,
   },
 
-
   notificationDot: {
-
     position: 'absolute',
 
-    top: 5,
-    right: 6,
+    top: 6,
+    right: 7,
 
-    width: 10,
-    height: 10,
+    width: 9,
+    height: 9,
 
     borderRadius: 5,
 
-    backgroundColor: '#E94A4A',
+    backgroundColor: '#E5484D',
 
     borderWidth: 2,
-
     borderColor: '#FFFFFF',
-
   },
 
 
@@ -865,102 +846,99 @@ const styles = StyleSheet.create({
   ======================================================== */
 
   attendanceCard: {
+    minHeight: 102,
 
-    height: 95,
+    backgroundColor: '#FFF7D9',
 
-    backgroundColor: '#FFF3C7',
-
-    borderRadius: 13,
+    borderRadius: 20,
 
     flexDirection: 'row',
     alignItems: 'center',
 
-    paddingHorizontal: 16,
+    paddingHorizontal: 17,
+    paddingVertical: 15,
 
-    marginBottom: 13,
+    marginBottom: 25,
 
+    borderWidth: 1,
+    borderColor: '#FFF0BA',
+
+    shadowColor: '#D9A329',
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    shadowOpacity: 0.07,
+    shadowRadius: 11,
+
+    elevation: 2,
   },
 
-
   clockCircle: {
+    width: 55,
+    height: 55,
 
-    width: 50,
-    height: 50,
+    borderRadius: 28,
 
-    borderRadius: 25,
-
-    backgroundColor: '#F4A000',
+    backgroundColor: '#F2A817',
 
     alignItems: 'center',
     justifyContent: 'center',
 
-    marginRight: 13,
-
+    marginRight: 15,
   },
-
 
   dateBlock: {
-    width: 95,
+    width: 105,
   },
-
 
   date: {
-
-    fontSize: 13,
-
+    fontSize: 14,
     fontWeight: '700',
 
-    color: '#171717',
-
+    color: '#24324A',
   },
-
 
   day: {
+    fontSize: 11.5,
 
-    fontSize: 12,
+    color: '#687386',
 
-    color: '#333333',
-
-    marginTop: 3,
-
+    marginTop: 5,
   },
 
+  timeDivider: {
+    width: 1,
+    height: 58,
+
+    backgroundColor: '#F0C45D',
+
+    marginRight: 15,
+  },
 
   times: {
     flex: 1,
   },
 
-
   timeRow: {
-
     flexDirection: 'row',
-
     alignItems: 'center',
-
     justifyContent: 'space-between',
 
-    marginVertical: 4,
-
+    marginVertical: 3,
   },
-
 
   timeLabel: {
-
     fontSize: 10,
 
-    color: '#333333',
-
+    color: '#687386',
   },
 
-
   time: {
-
-    fontSize: 20,
-
+    fontSize: 17,
     fontWeight: '700',
 
-    color: '#111111',
-
+    color: '#172033',
   },
 
 
@@ -969,58 +947,43 @@ const styles = StyleSheet.create({
   ======================================================== */
 
   sectionHeader: {
-
     flexDirection: 'row',
-
     alignItems: 'center',
-
     justifyContent: 'space-between',
 
-    paddingHorizontal: 5,
-
-    marginTop: 1,
-
-    marginBottom: 8,
-
+    marginBottom: 13,
   },
-
 
   newsHeader: {
-
     flexDirection: 'row',
-
     alignItems: 'center',
-
     justifyContent: 'space-between',
 
-    paddingHorizontal: 5,
-
-    marginTop: 28,
-
-    marginBottom: 12,
-
+    marginTop: 27,
+    marginBottom: 13,
   },
-
 
   sectionTitle: {
-
-    fontSize: 18,
-
+    fontSize: 20,
     fontWeight: '700',
 
-    color: '#273248',
+    color: '#1D2E4A',
 
+    letterSpacing: -0.2,
   },
 
+  seeAllRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+
+    gap: 5,
+  },
 
   seeAll: {
-
-    fontSize: 12,
+    fontSize: 11.5,
+    fontWeight: '500',
 
     color: '#428CE5',
-
-    textDecorationLine: 'underline',
-
   },
 
 
@@ -1028,70 +991,140 @@ const styles = StyleSheet.create({
      REQUEST
   ======================================================== */
 
-  requestCard: {
+  requestContainer: {
+    flexDirection: 'row',
 
-    height: 145,
-
-    borderWidth: 1,
-
-    borderColor: '#DEE5ED',
-
-    borderRadius: 14,
+    gap: 9,
 
     backgroundColor: '#FFFFFF',
 
-    flexDirection: 'row',
+    borderRadius: 21,
 
-    paddingHorizontal: 8,
+    padding: 10,
 
-    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#EDF2F8',
 
+    shadowColor: '#344054',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+
+    elevation: 1,
+  },
+
+  requestItem: {
+    flex: 1,
+
+    minHeight: 190,
+
+    borderRadius: 17,
+
+    paddingHorizontal: 10,
+    paddingTop: 12,
+    paddingBottom: 11,
+
+    borderWidth: 1,
+
+    overflow: 'hidden',
   },
 
 
-  requestItem: {
+  /* BLUE */
 
-    flex: 1,
+  requestBlue: {
+    backgroundColor: '#FCFDFF',
+    borderColor: '#DDEBFC',
+  },
 
-    alignItems: 'center',
+  requestIconBlue: {
+    backgroundColor: '#EAF4FF',
+  },
 
-    justifyContent: 'flex-start',
+  requestArrowBlue: {
+    backgroundColor: '#EAF4FF',
+  },
 
-    paddingHorizontal: 3,
 
+  /* PURPLE */
+
+  requestPurple: {
+    backgroundColor: '#FDFCFF',
+    borderColor: '#E7E0FD',
+  },
+
+  requestIconPurple: {
+    backgroundColor: '#F1ECFF',
+  },
+
+  requestArrowPurple: {
+    backgroundColor: '#F1ECFF',
+  },
+
+
+  /* GREEN */
+
+  requestGreen: {
+    backgroundColor: '#FCFEFD',
+    borderColor: '#DCEFE6',
+  },
+
+  requestIconGreen: {
+    backgroundColor: '#E8F8F1',
+  },
+
+  requestArrowGreen: {
+    backgroundColor: '#E8F8F1',
   },
 
 
   requestIcon: {
+    width: 52,
+    height: 52,
 
-    width: 62,
-    height: 62,
-
-    borderRadius: 13,
+    borderRadius: 15,
 
     alignItems: 'center',
-
     justifyContent: 'center',
 
-    marginBottom: 8,
-
+    marginBottom: 12,
   },
 
+  requestTitle: {
+    minHeight: 38,
 
-  requestText: {
-
-    minHeight: 32,
-
-    fontSize: 9.5,
-
-    lineHeight: 13,
+    fontSize: 11.5,
+    lineHeight: 16,
 
     fontWeight: '700',
 
-    color: '#273248',
+    color: '#1D2E4A',
+  },
 
-    textAlign: 'center',
+  requestDescription: {
+    flex: 1,
 
+    fontSize: 8.5,
+    lineHeight: 12.5,
+
+    color: '#7B8798',
+
+    marginTop: 6,
+  },
+
+  requestArrow: {
+    width: 33,
+    height: 33,
+
+    borderRadius: 17,
+
+    alignItems: 'center',
+    justifyContent: 'center',
+
+    marginTop: 9,
   },
 
 
@@ -1100,250 +1133,172 @@ const styles = StyleSheet.create({
   ======================================================== */
 
   newsCard: {
-
-    minHeight: 85,
+    minHeight: 88,
 
     backgroundColor: '#FFFFFF',
 
-    borderWidth: 1,
-
-    borderColor: '#E0E5EC',
-
-    borderRadius: 12,
+    borderRadius: 16,
 
     flexDirection: 'row',
+    alignItems: 'center',
 
     overflow: 'hidden',
 
-    marginBottom: 9,
+    marginBottom: 10,
 
+    borderWidth: 1,
+    borderColor: '#EEF2F7',
+
+    shadowColor: '#344054',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+
+    elevation: 1,
   },
 
-
-  yellowLine: {
-
-    width: 3,
-
-    backgroundColor: '#F2A900',
-
+  newsAccent: {
+    width: 4,
+    alignSelf: 'stretch',
   },
 
+  newsAccentBlue: {
+    backgroundColor: '#428CE5',
+  },
+
+  newsAccentPurple: {
+    backgroundColor: '#7956EE',
+  },
+
+  newsAccentGreen: {
+    backgroundColor: '#43B581',
+  },
+
+  newsIcon: {
+    width: 42,
+    height: 42,
+
+    borderRadius: 21,
+
+    alignItems: 'center',
+    justifyContent: 'center',
+
+    marginLeft: 13,
+  },
+
+  newsIconBlue: {
+    backgroundColor: '#EAF4FF',
+  },
+
+  newsIconPurple: {
+    backgroundColor: '#F1ECFF',
+  },
+
+  newsIconGreen: {
+    backgroundColor: '#E8F8F1',
+  },
 
   newsBody: {
-
     flex: 1,
 
-    paddingHorizontal: 15,
-
+    paddingLeft: 12,
+    paddingRight: 14,
     paddingVertical: 13,
-
   },
 
-
   newsTitle: {
-
-    fontSize: 14,
-
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
 
     fontWeight: '700',
 
     color: '#428CE5',
-
   },
-
 
   newsMeta: {
-
     flexDirection: 'row',
-
     alignItems: 'center',
-
     justifyContent: 'space-between',
 
-    marginTop: 12,
-
+    marginTop: 9,
   },
-
 
   newsDateRow: {
-
     flexDirection: 'row',
-
     alignItems: 'center',
-
   },
-
 
   newsDate: {
+    fontSize: 9.5,
 
-    fontSize: 10,
+    color: '#7B8798',
 
-    color: '#667085',
-
-    marginLeft: 7,
-
+    marginLeft: 5,
   },
-
 
   author: {
-
     maxWidth: '52%',
 
-    fontSize: 10,
+    fontSize: 9.5,
 
-    color: '#667085',
-
-  },
-
-
-  /* NEWS LOADING */
-
-  newsLoadingBox: {
-
-    minHeight: 100,
-
-    alignItems: 'center',
-
-    justifyContent: 'center',
-
-  },
-
-
-  newsLoadingText: {
-
-    marginTop: 8,
-
-    fontSize: 11,
-
-    color: '#98A2B3',
-
-  },
-
-
-  /* NEWS EMPTY */
-
-  newsEmptyBox: {
-
-    minHeight: 100,
-
-    alignItems: 'center',
-
-    justifyContent: 'center',
-
-  },
-
-
-  newsEmptyText: {
-
-    marginTop: 8,
-
-    fontSize: 11,
-
-    color: '#98A2B3',
-
+    color: '#7B8798',
   },
 
 
   /* ========================================================
-     BOTTOM NAV
+     NEWS LOADING
   ======================================================== */
 
-  bottomNav: {
-
-    height: 84,
+  newsLoadingBox: {
+    minHeight: 100,
 
     backgroundColor: '#FFFFFF',
 
-    borderTopWidth: 1,
-
-    borderTopColor: '#E4E7EC',
-
-    flexDirection: 'row',
+    borderRadius: 16,
 
     alignItems: 'center',
-
-    justifyContent: 'space-around',
-
-    paddingHorizontal: 7,
-
-    shadowColor: '#000000',
-
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
-
-    shadowOpacity: 0.04,
-
-    shadowRadius: 5,
-
-    elevation: 5,
-
-  },
-
-
-  navItem: {
-
-    flex: 1,
-
-    alignItems: 'center',
-
     justifyContent: 'center',
 
+    borderWidth: 1,
+    borderColor: '#EEF2F7',
+  },
+
+  newsLoadingText: {
+    marginTop: 8,
+
+    fontSize: 11,
+
+    color: '#98A2B3',
   },
 
 
-  activeNav: {
+  /* ========================================================
+     NEWS EMPTY
+  ======================================================== */
 
-    fontSize: 9,
+  newsEmptyBox: {
+    minHeight: 100,
 
-    color: '#428CE5',
+    backgroundColor: '#FFFFFF',
 
-    marginTop: 5,
-
-  },
-
-
-  navText: {
-
-    fontSize: 9,
-
-    color: '#94A3B8',
-
-    marginTop: 5,
-
-  },
-
-
-  plusButton: {
-
-    width: 55,
-    height: 55,
-
-    borderRadius: 28,
-
-    backgroundColor: '#428CE5',
+    borderRadius: 16,
 
     alignItems: 'center',
-
     justifyContent: 'center',
 
-    marginHorizontal: 9,
+    borderWidth: 1,
+    borderColor: '#EEF2F7',
+  },
 
-    shadowColor: '#428CE5',
+  newsEmptyText: {
+    marginTop: 8,
 
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
+    fontSize: 11,
 
-    shadowOpacity: 0.2,
-
-    shadowRadius: 6,
-
-    elevation: 5,
-
+    color: '#98A2B3',
   },
 
 });

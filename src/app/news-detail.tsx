@@ -1,6 +1,8 @@
 import { Feather } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -9,40 +11,225 @@ import {
   View,
 } from 'react-native';
 
+import BottomNav from '../components/BottomNav';
+import { API_URL } from '../config/api';
+
+
+/* =========================================================
+   TYPE
+========================================================= */
+
+type NewsDetail = {
+  newsId: number;
+  newsTitle: string;
+  newsValue: string;
+  newsAuthor: string;
+  newsPubDate: string;
+  cstmCd: string;
+  newsFolder: string;
+  newsFileId: number;
+  fileName: string | null;
+};
+
+
+/* =========================================================
+   HTML -> TEXT
+========================================================= */
+
+function htmlToText(html?: string) {
+  if (!html) {
+    return '';
+  }
+
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '• ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+
+/* =========================================================
+   SCREEN
+========================================================= */
+
 export default function NewsDetailScreen() {
-  const { userNm, cstmNm, userId, newsId } =
-    useLocalSearchParams<{
-      userNm?: string;
-      cstmNm?: string;
-      userId?: string;
-      newsId?: string;
-    }>();
+
+  const {
+    userNm,
+    cstmNm,
+    userId,
+    newsId,
+    token,
+  } = useLocalSearchParams<{
+    userNm?: string;
+    cstmNm?: string;
+    userId?: string;
+    newsId?: string;
+    token?: string;
+  }>();
+
+
+  /* =========================================================
+     STATE
+  ========================================================= */
+
+  const [detail, setDetail] =
+    useState<NewsDetail | null>(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState('');
+
+
+  /* =========================================================
+     NEWS DETAIL API
+  ========================================================= */
+
+  useEffect(() => {
+
+    const loadNewsDetail = async () => {
+
+      if (!newsId) {
+        setError('Мэдээний дугаар олдсонгүй.');
+        setLoading(false);
+        return;
+      }
+
+      if (!token) {
+        setError('Нэвтрэх мэдээлэл олдсонгүй.');
+        setLoading(false);
+        return;
+      }
+
+      try {
+
+        setLoading(true);
+        setError('');
+
+        const response = await fetch(
+          `${API_URL}/api/mobile/news/${newsId}`,
+          {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/json',
+            },
+          }
+        );
+
+
+        /* ================= 404 ================= */
+
+        if (response.status === 404) {
+          setError('Мэдээ олдсонгүй.');
+          return;
+        }
+
+
+        /* ================= 401 ================= */
+
+        if (response.status === 401) {
+          setError(
+            'Нэвтрэх эрхийн хугацаа дууссан эсвэл token буруу байна.'
+          );
+          return;
+        }
+
+
+        /* ================= OTHER ERROR ================= */
+
+        if (!response.ok) {
+          throw new Error(
+            `Мэдээ авах үед алдаа гарлаа. HTTP ${response.status}`
+          );
+        }
+
+
+        /* ================= JSON ================= */
+
+        const data: NewsDetail =
+          await response.json();
+
+        setDetail(data);
+
+      } catch (err) {
+
+        console.error(
+          'NEWS DETAIL ERROR:',
+          err
+        );
+
+        setError(
+          'Мэдээний дэлгэрэнгүй мэдээллийг серверээс авч чадсангүй.'
+        );
+
+      } finally {
+
+        setLoading(false);
+
+      }
+
+    };
+
+
+    loadNewsDetail();
+
+  }, [newsId, token]);
+
+
+  /* =========================================================
+     RENDER
+  ========================================================= */
 
   return (
+
     <SafeAreaView style={styles.safeArea}>
 
-      {/* ================= HEADER ================= */}
+
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
 
       <View style={styles.header}>
+
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
           activeOpacity={0.7}
         >
+
           <Feather
             name="chevron-left"
             size={28}
             color="#263247"
           />
+
         </TouchableOpacity>
+
 
         <Text style={styles.headerTitle}>
           Мэдээллийн дэлгэрэнгүй
         </Text>
+
       </View>
 
 
-      {/* ================= CONTENT ================= */}
+      {/* =====================================================
+          CONTENT
+      ===================================================== */}
 
       <ScrollView
         style={styles.scroll}
@@ -50,292 +237,248 @@ export default function NewsDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
 
-        <View style={styles.detailCard}>
 
-          {/* Гарчиг */}
+        {/* ================= LOADING ================= */}
 
-          <Text style={styles.newsTitle}>
-            Япон улсын Төрийн бодлого судлалын үндэсний хүрээлэн - 2027 оны Намрын элсэлт
-          </Text>
+        {loading && (
+
+          <View style={styles.centerBox}>
+
+            <ActivityIndicator
+              size="large"
+              color="#428CE5"
+            />
+
+            <Text style={styles.loadingText}>
+              Мэдээ уншиж байна...
+            </Text>
+
+          </View>
+
+        )}
 
 
-          {/* Огноо + үүсгэсэн */}
+        {/* ================= ERROR ================= */}
 
-          <View style={styles.metaRow}>
+        {!loading && error !== '' && (
 
-            <View style={styles.metaItem}>
+          <View style={styles.errorBox}>
+
+            <View style={styles.errorIcon}>
+
               <Feather
-                name="calendar"
-                size={16}
-                color="#596274"
+                name="alert-circle"
+                size={26}
+                color="#E5484D"
               />
 
-              <Text style={styles.metaText}>
-                2026-09-17
-              </Text>
             </View>
 
+            <Text style={styles.errorTitle}>
+              Алдаа гарлаа
+            </Text>
 
-            <View style={styles.metaItem}>
+            <Text style={styles.errorText}>
+              {error}
+            </Text>
+
+
+            <TouchableOpacity
+              style={styles.backToNewsButton}
+              activeOpacity={0.8}
+              onPress={() => router.back()}
+            >
+
               <Feather
-                name="user"
+                name="arrow-left"
                 size={17}
-                color="#596274"
+                color="#FFFFFF"
               />
 
-              <Text style={styles.metaText}>
-                Э.ЭНХТУЯА
+              <Text style={styles.backToNewsText}>
+                Буцах
               </Text>
-            </View>
-
-          </View>
-
-
-          {/* ================= МЭДЭЭНИЙ АГУУЛГА ================= */}
-
-          <View style={styles.descriptionBox}>
-
-            <Text style={styles.paragraph}>
-              ЯПОН УЛСЫН ТОКИО ХОТНОО БАЙРЛАХ
-            </Text>
-
-            <Text style={styles.paragraph}>
-              ТӨРИЙН БОДЛОГО СУДЛАЛЫН ҮНДЭСНИЙ
-            </Text>
-
-            <Text style={styles.paragraph}>
-              ХҮРЭЭЛЭН (NATIONAL GRADUATE INSTITUTE
-            </Text>
-
-            <Text style={styles.paragraph}>
-              FOR POLICY STUDIES – GRIPS) 2027 НАМРЫН
-            </Text>
-
-            <Text style={styles.paragraph}>
-              УЛИРАЛД МАГИСТР, ДОКТОРЫН ЧИГЛЭЛЭЭР
-            </Text>
-
-            <Text style={styles.paragraph}>
-              ДАРААХ ЧИГЛЭЛЭЭР ЭЛСЭЛТЭЭ ЗАРЛАЖ БАЙНА.
-            </Text>
-
-
-            <Text style={styles.programTitle}>
-              Хөтөлбөрүүд:
-            </Text>
-
-
-            <View style={styles.bulletRow}>
-              <Text style={styles.bullet}>•</Text>
-
-              <Text style={styles.bulletText}>
-                Залуу манлайлагчдын хөтөлбөр – Төрийн удирдлагын сургууль
-              </Text>
-            </View>
-
-
-            <View style={styles.bulletRow}>
-              <Text style={styles.bullet}>•</Text>
-
-              <Text style={styles.bulletText}>
-                Макро эдийн засгийн бодлогын хөтөлбөр
-              </Text>
-            </View>
-
-
-            <View style={styles.bulletRow}>
-              <Text style={styles.bullet}>•</Text>
-
-              <Text style={styles.bulletText}>
-                Төрийн бодлогын магистрын хөтөлбөр – 1 жилийн хугацаатай
-              </Text>
-            </View>
-
-
-            <View style={styles.bulletRow}>
-              <Text style={styles.bullet}>•</Text>
-
-              <Text style={styles.bulletText}>
-                Төрийн бодлогын магистрын хөтөлбөр – 2 жилийн хугацаатай
-              </Text>
-            </View>
-
-          </View>
-
-
-          {/* ================= ATTACHMENT ================= */}
-
-          <View style={styles.attachmentBox}>
-
-            <View style={styles.attachmentTitleRow}>
-              <Feather
-                name="paperclip"
-                size={20}
-                color="#428CE5"
-              />
-
-              <Text style={styles.attachmentTitle}>
-                Хавсралт файл (2)
-              </Text>
-            </View>
-
-
-            {/* PDF 1 */}
-
-            <TouchableOpacity
-              style={styles.fileItem}
-              activeOpacity={0.8}
-            >
-
-              <View style={styles.pdfIcon}>
-                <Text style={styles.pdfText}>
-                  PDF
-                </Text>
-              </View>
-
-              <Text
-                style={styles.fileName}
-                numberOfLines={1}
-              >
-                Журам.pdf
-              </Text>
-
-              <View style={styles.downloadButton}>
-                <Feather
-                  name="arrow-down"
-                  size={19}
-                  color="#FFFFFF"
-                />
-              </View>
-
-            </TouchableOpacity>
-
-
-            {/* PDF 2 */}
-
-            <TouchableOpacity
-              style={styles.fileItem}
-              activeOpacity={0.8}
-            >
-
-              <View style={styles.pdfIcon}>
-                <Text style={styles.pdfText}>
-                  PDF
-                </Text>
-              </View>
-
-              <Text
-                style={styles.fileName}
-                numberOfLines={1}
-              >
-                Танилцуулга.pdf
-              </Text>
-
-              <View style={styles.downloadButton}>
-                <Feather
-                  name="arrow-down"
-                  size={19}
-                  color="#FFFFFF"
-                />
-              </View>
 
             </TouchableOpacity>
 
           </View>
 
-        </View>
+        )}
+
+
+        {/* ================= DETAIL ================= */}
+
+        {!loading && !error && detail && (
+
+          <View style={styles.detailCard}>
+
+
+            {/* ================= TITLE ================= */}
+
+            <Text style={styles.newsTitle}>
+              {detail.newsTitle || '-'}
+            </Text>
+
+
+            {/* ================= META ================= */}
+
+            <View style={styles.metaRow}>
+
+
+              {/* DATE */}
+
+              <View style={styles.metaItem}>
+
+                <Feather
+                  name="calendar"
+                  size={16}
+                  color="#596274"
+                />
+
+                <Text style={styles.metaText}>
+                  {detail.newsPubDate || '-'}
+                </Text>
+
+              </View>
+
+
+              {/* AUTHOR */}
+
+              <View
+                style={[
+                  styles.metaItem,
+                  styles.authorItem,
+                ]}
+              >
+
+                <Feather
+                  name="user"
+                  size={17}
+                  color="#596274"
+                />
+
+                <Text
+                  style={styles.metaText}
+                  numberOfLines={1}
+                >
+                  {detail.newsAuthor || '-'}
+                </Text>
+
+              </View>
+
+            </View>
+
+
+            {/* =================================================
+                NEWS CONTENT
+            ================================================= */}
+
+            <View style={styles.descriptionBox}>
+
+              <Text style={styles.newsContent}>
+                {htmlToText(detail.newsValue)}
+              </Text>
+
+            </View>
+
+
+            {/* =================================================
+                ATTACHMENT
+                newsFileId > 0 үед л харуулна
+            ================================================= */}
+
+            {detail.newsFileId > 0 && (
+
+              <View style={styles.attachmentBox}>
+
+                <View style={styles.attachmentTitleRow}>
+
+                  <Feather
+                    name="paperclip"
+                    size={20}
+                    color="#428CE5"
+                  />
+
+                  <Text style={styles.attachmentTitle}>
+                    Хавсралт файл
+                  </Text>
+
+                </View>
+
+
+                <View style={styles.fileItem}>
+
+                  <View style={styles.pdfIcon}>
+
+                    <Text style={styles.pdfText}>
+                      FILE
+                    </Text>
+
+                  </View>
+
+
+                  <Text
+                    style={styles.fileName}
+                    numberOfLines={1}
+                  >
+                    {detail.fileName ||
+                      `Хавсралт файл #${detail.newsFileId}`}
+                  </Text>
+
+
+                  <View style={styles.fileStatusButton}>
+
+                    <Feather
+                      name="paperclip"
+                      size={17}
+                      color="#428CE5"
+                    />
+
+                  </View>
+
+                </View>
+
+
+                <Text style={styles.attachmentHint}>
+                  Файл татах API холбогдсоны дараа татах
+                  товч идэвхжинэ.
+                </Text>
+
+              </View>
+
+            )}
+
+
+          </View>
+
+        )}
+
 
       </ScrollView>
 
 
-      {/* ================= BOTTOM NAV ================= */}
+      {/* =====================================================
+          COMMON BOTTOM NAV
+      ===================================================== */}
 
-      <View style={styles.bottomNav}>
+      <BottomNav
+        active="home"
+        userNm={userNm}
+        cstmNm={cstmNm}
+        userId={userId}
+        token={token}
+      />
 
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() =>
-            router.replace({
-              pathname: '/home',
-              params: {
-                userNm,
-                cstmNm,
-                userId,
-              },
-            })
-          }
-        >
-          <Feather
-            name="grid"
-            size={23}
-            color="#94A3B8"
-          />
-
-          <Text style={styles.navText}>
-            Нүүр
-          </Text>
-        </TouchableOpacity>
-
-
-        <TouchableOpacity style={styles.navItem}>
-          <Feather
-            name="edit-3"
-            size={22}
-            color="#94A3B8"
-          />
-
-          <Text style={styles.navText}>
-            Хүсэлт
-          </Text>
-        </TouchableOpacity>
-
-
-        <TouchableOpacity
-          style={styles.plusButton}
-          activeOpacity={0.8}
-        >
-          <Feather
-            name="plus"
-            size={31}
-            color="#FFFFFF"
-          />
-        </TouchableOpacity>
-
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.back()}
-        >
-          <Feather
-            name="book-open"
-            size={22}
-            color="#428CE5"
-          />
-
-          <Text style={styles.activeNavText}>
-            Мэдээ
-          </Text>
-        </TouchableOpacity>
-
-
-        <TouchableOpacity style={styles.navItem}>
-          <Feather
-            name="user"
-            size={22}
-            color="#94A3B8"
-          />
-
-          <Text style={styles.navText}>
-            Миний
-          </Text>
-        </TouchableOpacity>
-
-      </View>
 
     </SafeAreaView>
+
   );
 }
 
+
+/* =========================================================
+   STYLES
+========================================================= */
 
 const styles = StyleSheet.create({
 
@@ -345,10 +488,11 @@ const styles = StyleSheet.create({
   },
 
 
-  /* HEADER */
+  /* ================= HEADER ================= */
 
   header: {
     height: 70,
+
     backgroundColor: '#F8FAFD',
 
     flexDirection: 'row',
@@ -356,6 +500,7 @@ const styles = StyleSheet.create({
 
     paddingHorizontal: 16,
   },
+
 
   backButton: {
     width: 42,
@@ -369,7 +514,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
 
     marginRight: 10,
+
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+
+    elevation: 1,
   },
+
 
   headerTitle: {
     fontSize: 19,
@@ -378,11 +534,12 @@ const styles = StyleSheet.create({
   },
 
 
-  /* SCROLL */
+  /* ================= SCROLL ================= */
 
   scroll: {
     flex: 1,
   },
+
 
   content: {
     paddingHorizontal: 17,
@@ -390,7 +547,7 @@ const styles = StyleSheet.create({
   },
 
 
-  /* DETAIL CARD */
+  /* ================= DETAIL CARD ================= */
 
   detailCard: {
     backgroundColor: '#FFFFFF',
@@ -408,17 +565,18 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.03,
     shadowRadius: 8,
+
     elevation: 1,
   },
 
 
-  /* TITLE */
+  /* ================= TITLE ================= */
 
   newsTitle: {
-    fontSize: 14,
-    lineHeight: 28,
+    fontSize: 15,
+    lineHeight: 23,
 
-    fontWeight: '500',
+    fontWeight: '600',
 
     color: '#428CE5',
 
@@ -426,7 +584,7 @@ const styles = StyleSheet.create({
   },
 
 
-  /* META */
+  /* ================= META ================= */
 
   metaRow: {
     flexDirection: 'row',
@@ -438,20 +596,30 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
 
+
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
   },
 
-  metaText: {
-    fontSize: 11,
-    color: '#303744',
 
-    marginLeft: 10,
+  authorItem: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    marginLeft: 15,
   },
 
 
-  /* DESCRIPTION */
+  metaText: {
+    fontSize: 11,
+
+    color: '#303744',
+
+    marginLeft: 8,
+  },
+
+
+  /* ================= DESCRIPTION ================= */
 
   descriptionBox: {
     borderWidth: 1,
@@ -459,60 +627,22 @@ const styles = StyleSheet.create({
 
     borderRadius: 10,
 
-    paddingHorizontal: 10,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 15,
 
     marginBottom: 13,
   },
 
-  paragraph: {
-    fontSize: 10.5,
-    lineHeight: 19,
 
-    color: '#202020',
-
-    marginBottom: 4,
-  },
-
-  programTitle: {
-    fontSize: 10.5,
-    fontWeight: '500',
-
-    color: '#202020',
-
-    marginTop: 6,
-    marginBottom: 8,
-  },
-
-  bulletRow: {
-    flexDirection: 'row',
-
-    paddingRight: 8,
-
-    marginBottom: 7,
-  },
-
-  bullet: {
-    width: 18,
-
+  newsContent: {
     fontSize: 12,
-
-    color: '#202020',
-
-    textAlign: 'center',
-  },
-
-  bulletText: {
-    flex: 1,
-
-    fontSize: 10.5,
-    lineHeight: 19,
+    lineHeight: 21,
 
     color: '#202020',
   },
 
 
-  /* ATTACHMENT */
+  /* ================= ATTACHMENT ================= */
 
   attachmentBox: {
     backgroundColor: '#EAF3FF',
@@ -520,7 +650,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
 
     padding: 12,
+
+    marginTop: 2,
   },
+
 
   attachmentTitleRow: {
     flexDirection: 'row',
@@ -528,6 +661,7 @@ const styles = StyleSheet.create({
 
     marginBottom: 12,
   },
+
 
   attachmentTitle: {
     fontSize: 13,
@@ -539,39 +673,40 @@ const styles = StyleSheet.create({
   },
 
 
-  /* FILE */
-
   fileItem: {
-    height: 47,
+    minHeight: 47,
 
     backgroundColor: '#FFFFFF',
+
+    borderRadius: 8,
 
     flexDirection: 'row',
     alignItems: 'center',
 
     paddingHorizontal: 12,
-
-    marginBottom: 8,
   },
 
+
   pdfIcon: {
-    width: 23,
-    height: 27,
+    width: 29,
+    height: 29,
 
     backgroundColor: '#E94343',
 
-    borderRadius: 3,
+    borderRadius: 5,
 
     alignItems: 'center',
     justifyContent: 'center',
   },
 
+
   pdfText: {
-    fontSize: 7,
+    fontSize: 6,
     fontWeight: '700',
 
     color: '#FFFFFF',
   },
+
 
   fileName: {
     flex: 1,
@@ -583,91 +718,125 @@ const styles = StyleSheet.create({
     color: '#242424',
   },
 
-  downloadButton: {
-    width: 27,
-    height: 27,
 
-    borderRadius: 14,
+  fileStatusButton: {
+    width: 30,
+    height: 30,
 
-    backgroundColor: '#428CE5',
+    borderRadius: 15,
+
+    backgroundColor: '#EAF3FF',
 
     alignItems: 'center',
     justifyContent: 'center',
   },
 
 
-  /* BOTTOM NAV */
+  attachmentHint: {
+    fontSize: 10,
+    lineHeight: 15,
 
-  bottomNav: {
-    height: 84,
+    color: '#7B8798',
+
+    marginTop: 8,
+  },
+
+
+  /* ================= LOADING ================= */
+
+  centerBox: {
+    minHeight: 300,
+
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+
+  loadingText: {
+    marginTop: 12,
+
+    fontSize: 12,
+
+    color: '#7B8798',
+  },
+
+
+  /* ================= ERROR ================= */
+
+  errorBox: {
+    minHeight: 300,
 
     backgroundColor: '#FFFFFF',
 
-    borderTopWidth: 1,
-    borderTopColor: '#E4E7EC',
-
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-
-    paddingHorizontal: 7,
-
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
-    shadowOpacity: 0.04,
-    shadowRadius: 5,
-
-    elevation: 5,
-  },
-
-  navItem: {
-    flex: 1,
+    borderRadius: 12,
 
     alignItems: 'center',
     justifyContent: 'center',
+
+    paddingHorizontal: 25,
+    paddingVertical: 30,
   },
 
-  navText: {
-    marginTop: 5,
 
-    fontSize: 9,
-
-    color: '#94A3B8',
-  },
-
-  activeNavText: {
-    marginTop: 5,
-
-    fontSize: 9,
-    fontWeight: '600',
-
-    color: '#428CE5',
-  },
-
-  plusButton: {
+  errorIcon: {
     width: 55,
     height: 55,
 
     borderRadius: 28,
 
-    backgroundColor: '#428CE5',
+    backgroundColor: '#FFF1F1',
 
     alignItems: 'center',
     justifyContent: 'center',
 
-    marginHorizontal: 9,
-
-    shadowColor: '#428CE5',
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-
-    elevation: 5,
+    marginBottom: 12,
   },
+
+
+  errorTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+
+    color: '#273248',
+
+    marginBottom: 7,
+  },
+
+
+  errorText: {
+    fontSize: 12,
+    lineHeight: 19,
+
+    color: '#7B8798',
+
+    textAlign: 'center',
+  },
+
+
+  backToNewsButton: {
+    height: 42,
+
+    borderRadius: 10,
+
+    backgroundColor: '#428CE5',
+
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+
+    paddingHorizontal: 18,
+
+    marginTop: 18,
+  },
+
+
+  backToNewsText: {
+    fontSize: 12,
+    fontWeight: '600',
+
+    color: '#FFFFFF',
+
+    marginLeft: 7,
+  },
+
 });
