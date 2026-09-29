@@ -48,7 +48,7 @@ const requestTypes: RequestType[] = [
     icon: 'calendar',
     color: '#16A36C',
     background: '#EAF9F3',
-    route: '/leave-request',
+    route: '/leave-menu',
   },
 ];
 

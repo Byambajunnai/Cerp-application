@@ -1,83 +1,100 @@
-
 import { Feather } from "@expo/vector-icons";
-
 import {
-    router,
-    useFocusEffect,
-    useLocalSearchParams,
+  router,
+  useFocusEffect,
+  useLocalSearchParams,
 } from "expo-router";
 
 import {
-    useCallback,
-    useRef,
-    useState,
+  useCallback,
+  useRef,
+  useState,
 } from "react";
 
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Platform,
-    RefreshControl,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Platform,
+  Pressable,
+  RefreshControl,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 
+import BottomNav from "../components/BottomNav";
 import { API_URL } from "../config/api";
 
-// ======================================
+// =====================================================
 // ТОХИРГОО
-// ======================================
+// =====================================================
 
-const BLUE = "#2075D2";
-
+const BLUE = "#1985DE";
 const PAGE_SIZE = 10;
 
 const TIMEBREAK_URL =
   `${API_URL}/api/mobile/timebreak`;
 
-// ======================================
-// API TYPE
-// ======================================
+// =====================================================
+// TYPE
+// =====================================================
 
 type LeaveRequest = {
   breakId: number | string;
+
+  // API-аас ирэх хүсэлтийн төрөл
+  // Жишээ: "19"
+  breakType?: string;
+
+  // Жишээ: "БУСАД"
   breakTypeNm?: string;
+
   prgsStatusNm?: string;
+  prgsStatusCd?: string;
+
   breakstartDate?: string;
   breakfinishDate?: string;
+
   regDate?: string;
+
+  breakSalary?: string;
   breakSalaryNm?: string;
+
   workDays?: number | string;
+
   breakNote?: string;
+
+  fileId?: string;
+  fileNm?: string;
 };
 
 type LeaveResponse = {
   items?: LeaveRequest[];
+
   pageNumber?: number;
   totalPage?: number;
   totalCount?: number;
   hasNextPage?: boolean;
+
   message?: string;
 };
 
-// ======================================
-// ОГНОО ФОРМАТЛАХ
-// ======================================
+// =====================================================
+// ОГНОО ФОРМАТ
+// =====================================================
 
 const formatDate = (
   date?: string | null
 ): string => {
-
   if (!date) {
     return "-";
   }
 
   const value = String(date);
 
+  // 20260929
   if (/^\d{8}$/.test(value)) {
     return (
       value.substring(0, 4) +
@@ -88,59 +105,78 @@ const formatDate = (
     );
   }
 
+  // 2026-09-29
   return value
     .substring(0, 10)
     .replace(/-/g, ".");
 };
 
-// ======================================
-// ХҮСЭЛТИЙН ТӨЛӨВИЙН ӨНГӨ
-// ======================================
+// =====================================================
+// ТӨЛӨВИЙН ӨНГӨ
+// =====================================================
 
 const getStatusStyle = (
   status?: string
 ) => {
-
   const value = String(
     status || ""
-  ).toLowerCase();
+  )
+    .trim()
+    .toLowerCase();
 
+  // Татгалзсан
   if (
     value.includes("татгалз") ||
     value.includes("буцаа")
   ) {
     return {
-      backgroundColor: "#FEE2E2",
-      color: "#DC2626",
+      backgroundColor: "#FDEBED",
+      color: "#D94B55",
     };
   }
 
+  // Баталсан
   if (
     value.includes("батал") ||
-    value.includes("зөвшөөр") ||
-    value.includes("хянасан")
+    value.includes("зөвшөөр")
   ) {
     return {
-      backgroundColor: "#DCFCE7",
-      color: "#16834A",
+      backgroundColor: "#E4F7ED",
+      color: "#21945B",
     };
   }
 
+  // Илгээсэн
+  if (value.includes("илгээ")) {
+    return {
+      backgroundColor: "#E7F0FF",
+      color: "#3275D8",
+    };
+  }
+
+  // Хадгалсан
+  if (value.includes("хадгал")) {
+    return {
+      backgroundColor: "#F1F3F6",
+      color: "#64748B",
+    };
+  }
+
+  // Хүлээгдэж байгаа
   return {
-    backgroundColor: "#FFF1D6",
+    backgroundColor: "#FFF0D8",
     color: "#C77700",
   };
 };
 
-// ======================================
-// SCREEN
-// ======================================
+// =====================================================
+// MAIN SCREEN
+// =====================================================
 
 export default function LeaveRequestScreen() {
-
-  // ====================================
-  // LOGIN-ООС ДАМЖУУЛСАН МЭДЭЭЛЭЛ
-  // ====================================
+  // ===================================================
+  // ROUTER PARAMS
+  // ===================================================
 
   const {
     userNm,
@@ -156,9 +192,9 @@ export default function LeaveRequestScreen() {
     token?: string;
   }>();
 
-  // ====================================
+  // ===================================================
   // STATE
-  // ====================================
+  // ===================================================
 
   const [requests, setRequests] =
     useState<LeaveRequest[]>([]);
@@ -184,42 +220,55 @@ export default function LeaveRequestScreen() {
   const [error, setError] =
     useState("");
 
-  // Давхар API дуудлагаас хамгаалах
+  // 3 цэгийн нээлттэй menu
+  const [openMenuId, setOpenMenuId] =
+    useState<string | null>(null);
 
+  // API давхар дуудагдахаас хамгаална
   const requestInProgress =
     useRef(false);
 
-  // ====================================
-  // МЭДЭГДЭЛ
-  // ====================================
+  // ===================================================
+  // NAVIGATION PARAMS
+  // ===================================================
+
+  const navigationParams = {
+    userNm: userNm || "",
+    cstmNm: cstmNm || "",
+    userId: userId || "",
+    cstmCd: cstmCd || "",
+    token: token || "",
+  };
+
+  // ===================================================
+  // MESSAGE
+  // ===================================================
 
   const showMessage = (
     title: string,
     message: string
   ) => {
-
     if (Platform.OS === "web") {
       window.alert(
         `${title}\n${message}`
       );
     } else {
-      Alert.alert(title, message);
+      Alert.alert(
+        title,
+        message
+      );
     }
   };
 
-  // ====================================
-  // ХҮСЭЛТИЙН API
-  // ====================================
+  // ===================================================
+  // GET REQUEST LIST
+  // ===================================================
 
   const fetchRequests = useCallback(
-
     async (
       pageNumber: number = 1,
       append: boolean = false
     ) => {
-
-      // Давхар хүсэлт илгээхгүй
-
       if (requestInProgress.current) {
         return;
       }
@@ -227,7 +276,6 @@ export default function LeaveRequestScreen() {
       requestInProgress.current = true;
 
       try {
-
         if (pageNumber === 1) {
           setLoading(true);
         } else {
@@ -236,31 +284,24 @@ export default function LeaveRequestScreen() {
 
         setError("");
 
-        // ==============================
-        // TOKEN ШАЛГАХ
-        // ==============================
-
         if (!token) {
-
           throw new Error(
-            "Нэвтрэх мэдээлэл олдсонгүй. " +
-            "Дахин нэвтэрнэ үү."
+            "Нэвтрэх мэдээлэл олдсонгүй. Дахин нэвтэрнэ үү."
           );
-
         }
-
-        // ==============================
-        // API URL
-        // ==============================
 
         const url =
           `${TIMEBREAK_URL}` +
           `?page=${pageNumber}` +
           `&pageSize=${PAGE_SIZE}`;
 
-        // ==============================
-        // API ДУУДАХ
-        // ==============================
+        console.log(
+          "===================================="
+        );
+        console.log(
+          "TIMEBREAK LIST URL:",
+          url
+        );
 
         const response = await fetch(
           url,
@@ -276,112 +317,115 @@ export default function LeaveRequestScreen() {
           }
         );
 
-        // ==============================
-        // API RESPONSE
-        // ==============================
-
         const text =
           await response.text();
+
+        console.log(
+          "TIMEBREAK LIST STATUS:",
+          response.status
+        );
+
+        console.log(
+          "TIMEBREAK LIST RESPONSE:",
+          text
+        );
 
         let result: LeaveResponse = {};
 
         try {
-
           result = text
             ? JSON.parse(text)
             : {};
-
         } catch {
-
           throw new Error(
-            "Амралтын хүсэлтийн API " +
-            "JSON бус хариу буцаалаа."
+            "API JSON бус хариу буцаалаа."
           );
-
         }
-
-        // ==============================
-        // TOKEN ERROR
-        // ==============================
 
         if (response.status === 401) {
-
           throw new Error(
-            "Нэвтрэх эрхийн хугацаа " +
-            "дууссан байна. " +
-            "Дахин нэвтэрнэ үү."
+            "Нэвтрэх эрхийн хугацаа дууссан байна."
           );
-
         }
-
-        // ==============================
-        // API ERROR
-        // ==============================
 
         if (!response.ok) {
-
           throw new Error(
             result.message ||
-            `API алдаа: ${response.status}`
+              `API алдаа: ${response.status}`
           );
-
         }
 
-        // ==============================
-        // ITEMS
-        // ==============================
-
-        const newItems: LeaveRequest[] =
+        const newItems =
           Array.isArray(result.items)
             ? result.items
             : [];
 
-        // ==============================
-        // ЖАГСААЛТ ШИНЭЧЛЭХ
-        // ==============================
+        console.log(
+          "TIMEBREAK ITEMS:",
+          newItems
+        );
 
-        if (append) {
+        // breakType ирж байгаа эсэхийг харах
+        if (newItems.length > 0) {
+          console.log(
+            "FIRST BREAK ID:",
+            newItems[0].breakId
+          );
 
-          setRequests((previous) => {
+          console.log(
+            "FIRST BREAK TYPE:",
+            newItems[0].breakType
+          );
 
-            const existingIds = new Set(
-              previous.map(
-                (item) =>
-                  String(item.breakId)
-              )
-            );
-
-            const uniqueItems =
-              newItems.filter(
-                (item) =>
-                  !existingIds.has(
-                    String(item.breakId)
-                  )
-              );
-
-            return [
-              ...previous,
-              ...uniqueItems,
-            ];
-
-          });
-
-        } else {
-
-          setRequests(newItems);
-
+          console.log(
+            "FIRST BREAK TYPE NAME:",
+            newItems[0].breakTypeNm
+          );
         }
 
-        // ==============================
-        // PAGINATION
-        // ==============================
+        // Pagination append
+        if (append) {
+          setRequests(
+            (previous) => {
+              const existingIds =
+                new Set(
+                  previous.map(
+                    (item) =>
+                      String(
+                        item.breakId
+                      )
+                  )
+                );
+
+              const uniqueItems =
+                newItems.filter(
+                  (item) =>
+                    !existingIds.has(
+                      String(
+                        item.breakId
+                      )
+                    )
+                );
+
+              return [
+                ...previous,
+                ...uniqueItems,
+              ];
+            }
+          );
+        } else {
+          setRequests(newItems);
+        }
 
         const currentPage =
-          Number(result.pageNumber) ||
-          pageNumber;
+          Number(
+            result.pageNumber
+          ) || pageNumber;
 
         const totalPages =
-          Number(result.totalPage) || 1;
+          Number(
+            result.totalPage
+          ) || 1;
 
         setPage(currentPage);
 
@@ -393,16 +437,15 @@ export default function LeaveRequestScreen() {
         );
 
         setTotalCount(
-          Number(result.totalCount) || 0
+          Number(
+            result.totalCount
+          ) || 0
         );
-
       } catch (err: unknown) {
-
         const message =
           err instanceof Error
             ? err.message
-            : "Хүсэлтүүдийг авахад " +
-              "алдаа гарлаа.";
+            : "Хүсэлтүүдийг авахад алдаа гарлаа.";
 
         console.error(
           "TIMEBREAK API ERROR:",
@@ -412,68 +455,64 @@ export default function LeaveRequestScreen() {
         setError(message);
 
         if (pageNumber > 1) {
-
           showMessage(
             "Алдаа",
             message
           );
-
         }
-
       } finally {
-
         setLoading(false);
-
         setRefreshing(false);
-
         setLoadingMore(false);
 
-        requestInProgress.current = false;
-
+        requestInProgress.current =
+          false;
       }
-
     },
-
     [token]
-
   );
 
-  // ====================================
-  // ДЭЛГЭЦ НЭЭГДЭХ БҮРД АЧААЛАХ
-  // ====================================
+  // ===================================================
+  // ДЭЛГЭЦ НЭЭГДЭХ БҮР ЖАГСААЛТ ШИНЭЧИЛНЭ
+  // ===================================================
 
   useFocusEffect(
-
     useCallback(() => {
+      setOpenMenuId(null);
 
-      fetchRequests(1, false);
-
+      fetchRequests(
+        1,
+        false
+      );
     }, [fetchRequests])
-
   );
 
-  // ====================================
+  // ===================================================
   // REFRESH
-  // ====================================
+  // ===================================================
 
   const onRefresh = () => {
-
-    if (requestInProgress.current) {
+    if (
+      requestInProgress.current
+    ) {
       return;
     }
 
+    setOpenMenuId(null);
+
     setRefreshing(true);
 
-    fetchRequests(1, false);
-
+    fetchRequests(
+      1,
+      false
+    );
   };
 
-  // ====================================
+  // ===================================================
   // LOAD MORE
-  // ====================================
+  // ===================================================
 
   const loadMore = () => {
-
     if (
       !hasNextPage ||
       loading ||
@@ -488,787 +527,1344 @@ export default function LeaveRequestScreen() {
       page + 1,
       true
     );
-
   };
 
-  // ====================================
-  // HOME РУУ БУЦАХ
-  // ====================================
+  // ===================================================
+  // БУЦАХ
+  // ===================================================
 
-  const goHome = () => {
-
+  const goBack = () => {
     router.replace({
-      pathname: "/home",
-
-      params: {
-        userNm: userNm || "",
-        cstmNm: cstmNm || "",
-        userId: userId || "",
-        cstmCd: cstmCd || "",
-        token: token || "",
-      },
+      pathname: "/leave-menu",
+      params: navigationParams,
     });
-
   };
 
-  // ====================================
-  // ШИНЭ ХҮСЭЛТ
-  // ====================================
+  // ===================================================
+  // НЭМЭХ
+  // ===================================================
 
   const goCreateRequest = () => {
+    setOpenMenuId(null);
 
     router.push({
       pathname: "/leave-create",
 
-      params: {
-        userNm: userNm || "",
-        cstmNm: cstmNm || "",
-        userId: userId || "",
-        cstmCd: cstmCd || "",
-        token: token || "",
-      },
+      params: navigationParams,
     });
-
   };
 
-  // ====================================
-  // ХҮСЭЛТИЙН CARD
-  // ====================================
+  // ===================================================
+  // DETAIL
+  // ===================================================
+
+  const goDetail = (
+    item: LeaveRequest
+  ) => {
+    setOpenMenuId(null);
+
+    console.log(
+      "===================================="
+    );
+
+    console.log(
+      "OPEN DETAIL"
+    );
+
+    console.log(
+      "BREAK ID:",
+      item.breakId
+    );
+
+    console.log(
+      "BREAK TYPE:",
+      item.breakType
+    );
+
+    console.log(
+      "BREAK TYPE NAME:",
+      item.breakTypeNm
+    );
+
+    console.log(
+      "STATUS CODE:",
+      item.prgsStatusCd
+    );
+
+    console.log(
+      "STATUS NAME:",
+      item.prgsStatusNm
+    );
+
+    console.log(
+      "FULL ITEM:",
+      item
+    );
+
+    console.log(
+      "===================================="
+    );
+
+    if (!item.breakId) {
+      showMessage(
+        "Алдаа",
+        "Хүсэлтийн дугаар олдсонгүй."
+      );
+
+      return;
+    }
+
+    if (!item.breakType) {
+      showMessage(
+        "Алдаа",
+        "Хүсэлтийн төрөл олдсонгүй."
+      );
+
+      return;
+    }
+
+    router.push({
+      pathname: "/leave-detail",
+
+      params: {
+        ...navigationParams,
+
+        // Detail API-д хэрэгтэй
+        breakId:
+          String(
+            item.breakId
+          ),
+
+        breakType:
+          String(
+            item.breakType
+          ),
+
+        // Дэлгэцийн мэдээлэл
+        breakTypeNm:
+          item.breakTypeNm || "",
+
+        prgsStatusCd:
+          item.prgsStatusCd || "",
+
+        prgsStatusNm:
+          item.prgsStatusNm || "",
+
+        breakstartDate:
+          item.breakstartDate || "",
+
+        breakfinishDate:
+          item.breakfinishDate || "",
+
+        regDate:
+          item.regDate || "",
+
+        breakSalary:
+          item.breakSalary || "",
+
+        breakSalaryNm:
+          item.breakSalaryNm || "",
+
+        workDays:
+          String(
+            item.workDays ?? ""
+          ),
+
+        breakNote:
+          item.breakNote || "",
+
+        fileId:
+          item.fileId || "",
+
+        fileNm:
+          item.fileNm || "",
+      },
+    });
+  };
+
+  // ===================================================
+  // EDIT
+  // ===================================================
+
+  const goEdit = (
+    item: LeaveRequest
+  ) => {
+    setOpenMenuId(null);
+
+    if (!item.breakId) {
+      showMessage(
+        "Алдаа",
+        "Хүсэлтийн дугаар олдсонгүй."
+      );
+
+      return;
+    }
+
+    if (!item.breakType) {
+      showMessage(
+        "Алдаа",
+        "Хүсэлтийн төрөл олдсонгүй."
+      );
+
+      return;
+    }
+
+    router.push({
+      pathname:
+        "/leave-edit" as any,
+
+      params: {
+        ...navigationParams,
+
+        breakId:
+          String(
+            item.breakId
+          ),
+
+        breakType:
+          String(
+            item.breakType
+          ),
+
+        breakTypeNm:
+          item.breakTypeNm || "",
+
+        prgsStatusCd:
+          item.prgsStatusCd || "",
+
+        prgsStatusNm:
+          item.prgsStatusNm || "",
+
+        breakstartDate:
+          item.breakstartDate || "",
+
+        breakfinishDate:
+          item.breakfinishDate || "",
+
+        breakSalary:
+          item.breakSalary || "",
+
+        breakSalaryNm:
+          item.breakSalaryNm || "",
+
+        workDays:
+          String(
+            item.workDays ?? ""
+          ),
+
+        breakNote:
+          item.breakNote || "",
+
+        fileId:
+          item.fileId || "",
+
+        fileNm:
+          item.fileNm || "",
+      },
+    });
+  };
+
+  // ===================================================
+  // DELETE
+  // ===================================================
+
+  const deleteRequest = async (
+    item: LeaveRequest
+  ) => {
+    try {
+      if (!token) {
+        throw new Error(
+          "Нэвтрэх мэдээлэл олдсонгүй."
+        );
+      }
+
+      if (!item.breakId) {
+        throw new Error(
+          "Хүсэлтийн дугаар олдсонгүй."
+        );
+      }
+
+      const url =
+        `${TIMEBREAK_URL}/` +
+        `${encodeURIComponent(
+          String(
+            item.breakId
+          )
+        )}`;
+
+      console.log(
+        "DELETE URL:",
+        url
+      );
+
+      const response =
+        await fetch(
+          url,
+          {
+            method: "DELETE",
+
+            headers: {
+              Accept:
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+          }
+        );
+
+      const text =
+        await response.text();
+
+      console.log(
+        "DELETE STATUS:",
+        response.status
+      );
+
+      console.log(
+        "DELETE RESPONSE:",
+        text
+      );
+
+      let result: {
+        message?: string;
+      } = {};
+
+      if (text) {
+        try {
+          result =
+            JSON.parse(text);
+        } catch {
+          // Сервер JSON бус response
+          // буцааж болох тул хоосон үлдээнэ.
+        }
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          result.message ||
+            `Устгахад алдаа гарлаа: ${response.status}`
+        );
+      }
+
+      setOpenMenuId(null);
+
+      showMessage(
+        "Амжилттай",
+        result.message ||
+          "Хүсэлт амжилттай устгагдлаа."
+      );
+
+      fetchRequests(
+        1,
+        false
+      );
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Хүсэлт устгахад алдаа гарлаа.";
+
+      console.error(
+        "DELETE ERROR:",
+        message
+      );
+
+      showMessage(
+        "Алдаа",
+        message
+      );
+    }
+  };
+
+  // ===================================================
+  // DELETE CONFIRM
+  // ===================================================
+
+  const confirmDelete = (
+    item: LeaveRequest
+  ) => {
+    setOpenMenuId(null);
+
+    const message =
+      `Та "${
+        item.breakTypeNm ||
+        "Хүсэлт"
+      }" хүсэлтийг устгах уу?`;
+
+    if (
+      Platform.OS === "web"
+    ) {
+      if (
+        window.confirm(message)
+      ) {
+        deleteRequest(item);
+      }
+
+      return;
+    }
+
+    Alert.alert(
+      "Хүсэлт устгах",
+      message,
+      [
+        {
+          text: "Болих",
+          style: "cancel",
+        },
+
+        {
+          text: "Устгах",
+          style: "destructive",
+
+          onPress: () =>
+            deleteRequest(item),
+        },
+      ]
+    );
+  };
+
+  // ===================================================
+  // REQUEST CARD
+  // ===================================================
 
   const renderRequest = ({
     item,
   }: {
     item: LeaveRequest;
   }) => {
-
     const statusStyle =
       getStatusStyle(
         item.prgsStatusNm
       );
 
+    // Зөвхөн ХАДГАЛСАН төлөвтэй үед
+    // Засах / Устгах menu гарна.
+    const isSaved =
+      String(
+        item.prgsStatusCd || ""
+      ) === "10" ||
+      String(
+        item.prgsStatusNm || ""
+      )
+        .trim()
+        .toLowerCase() ===
+        "хадгалсан";
+
+    const isMenuOpen =
+      openMenuId ===
+      String(
+        item.breakId
+      );
+
     return (
+      <View
+        style={
+          styles.cardWrapper
+        }
+      >
+        {/* ================================= */}
+        {/* ҮНДСЭН CARD */}
+        {/* ================================= */}
 
-    
-<TouchableOpacity
-  style={styles.card}
-  activeOpacity={0.8}
-  onPress={() =>
-    router.push({
-      pathname: "/leave-detail",
-      params: {
-        breakId: String(item.breakId),
-        breakTypeNm: item.breakTypeNm || "",
-        prgsStatusNm: item.prgsStatusNm || "",
-        breakstartDate: item.breakstartDate || "",
-        breakfinishDate: item.breakfinishDate || "",
-        regDate: item.regDate || "",
-        breakSalaryNm: item.breakSalaryNm || "",
-        workDays: String(item.workDays ?? ""),
-        breakNote: item.breakNote || "",
+        <Pressable
+          onPress={() =>
+            goDetail(item)
+          }
+          style={({
+            hovered,
+            pressed,
+          }) => [
+            styles.card,
 
-        userNm: userNm || "",
-        cstmNm: cstmNm || "",
-        userId: userId || "",
-        cstmCd: cstmCd || "",
-        token: token || "",
-      },
-    })
-  }
->
-
-
-        {/* CARD HEADER */}
-
-        <View style={styles.cardHeader}>
-
-          <Text
-            style={styles.cardTitle}
-            numberOfLines={2}
-          >
-            {item.breakTypeNm ||
-              "Амралтын хүсэлт"}
-          </Text>
+            (hovered ||
+              pressed) &&
+              styles.cardHover,
+          ]}
+        >
+          {/* HEADER */}
 
           <View
-            style={[
-              styles.statusBadge,
-              {
-                backgroundColor:
-                  statusStyle.backgroundColor,
-              },
-            ]}
+            style={
+              styles.cardHeader
+            }
           >
-
             <Text
-              style={[
-                styles.statusText,
-                {
-                  color:
-                    statusStyle.color,
-                },
-              ]}
+              style={
+                styles.cardTitle
+              }
+              numberOfLines={2}
             >
-              {item.prgsStatusNm ||
-                "Тодорхойгүй"}
+              {item.breakTypeNm ||
+                "Амралтын хүсэлт"}
             </Text>
 
+            <View
+              style={
+                styles.cardActions
+              }
+            >
+              {/* STATUS */}
+
+              <View
+                style={[
+                  styles.statusBadge,
+
+                  {
+                    backgroundColor:
+                      statusStyle.backgroundColor,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusText,
+
+                    {
+                      color:
+                        statusStyle.color,
+                    },
+                  ]}
+                >
+                  {item.prgsStatusNm ||
+                    "Тодорхойгүй"}
+                </Text>
+              </View>
+
+              {/* 3 DOT */}
+
+              {isSaved && (
+                <Pressable
+                  style={
+                    styles.moreButton
+                  }
+                  onPress={(
+                    event
+                  ) => {
+                    // Card-ийн detail
+                    // event ажиллахаас хамгаална.
+                    event.stopPropagation();
+
+                    setOpenMenuId(
+                      isMenuOpen
+                        ? null
+                        : String(
+                            item.breakId
+                          )
+                    );
+                  }}
+                >
+                  <Feather
+                    name="more-vertical"
+                    size={19}
+                    color="#64748B"
+                  />
+                </Pressable>
+              )}
+
+              {/* DETAIL ARROW */}
+
+              <Feather
+                name="chevron-right"
+                size={19}
+                color="#64748B"
+              />
+            </View>
           </View>
 
-        </View>
+          {/* DATE */}
 
-        {/* АМРАЛТЫН ХУГАЦАА */}
-
-        <View style={styles.infoRow}>
-
-          <Feather
-            name="calendar"
-            size={15}
-            color="#64748B"
-          />
-
-          <Text style={styles.dateText}>
-
+          <Text
+            style={
+              styles.dateText
+            }
+          >
             {formatDate(
               item.breakstartDate
             )}
 
-            {" – "}
+            {" - "}
 
             {formatDate(
               item.breakfinishDate
             )}
-
           </Text>
 
-        </View>
+          {/* SALARY */}
 
-        {/* БҮРТГЭСЭН ОГНОО */}
+          <Text
+            style={
+              styles.infoText
+            }
+          >
+            Цалинтай эсэх:{" "}
 
-        <View style={styles.infoRow}>
-
-          <Feather
-            name="clock"
-            size={15}
-            color="#64748B"
-          />
-
-          <Text style={styles.infoText}>
-
-            Илгээсэн:{" "}
-
-            {formatDate(
-              item.regDate
-            )}
-
+            {item.breakSalaryNm ||
+              "-"}
           </Text>
 
-        </View>
+          {/* WORK DAYS */}
 
-        {/* ЦАЛИНТАЙ ЭСЭХ */}
-
-        <View style={styles.infoRow}>
-
-          <Feather
-            name="file-text"
-            size={15}
-            color="#64748B"
-          />
-
-          <Text style={styles.infoText}>
-
-            Цалинтай:{" "}
-
-            {item.breakSalaryNm || "-"}
-
-          </Text>
-
-        </View>
-
-        {/* АЖЛЫН ӨДӨР */}
-
-        <View style={styles.infoRow}>
-
-          <Feather
-            name="calendar"
-            size={15}
-            color="#64748B"
-          />
-
-          <Text style={styles.infoText}>
-
+          <Text
+            style={
+              styles.infoText
+            }
+          >
             Ажлын өдөр:{" "}
 
             {item.workDays ?? "-"}
-
           </Text>
+        </Pressable>
 
-        </View>
+        {/* ================================= */}
+        {/* ЗАСАХ / УСТГАХ POPUP */}
+        {/* ================================= */}
 
-        {/* ТАЙЛБАР */}
-
-        {item.breakNote ? (
-
-          <View style={styles.noteBox}>
-
-            <Text
-              style={styles.noteText}
-              numberOfLines={2}
+        {isSaved &&
+          isMenuOpen && (
+            <View
+              style={
+                styles.popupMenu
+              }
             >
-              {item.breakNote}
-            </Text>
+              {/* EDIT */}
 
-          </View>
+              <Pressable
+                onPress={() =>
+                  goEdit(item)
+                }
+                style={({
+                  hovered,
+                  pressed,
+                }) => [
+                  styles.menuItem,
 
-        ) : null}
+                  (hovered ||
+                    pressed) &&
+                    styles.menuItemHover,
+                ]}
+              >
+                <Feather
+                  name="edit-2"
+                  size={17}
+                  color="#2388EF"
+                />
 
-        {/* ХҮСЭЛТИЙН ДУГААР */}
+                <Text
+                  style={
+                    styles.editText
+                  }
+                >
+                  Засах
+                </Text>
+              </Pressable>
 
-        <View style={styles.cardFooter}>
+              <View
+                style={
+                  styles.menuDivider
+                }
+              />
 
-          <Text style={styles.requestId}>
+              {/* DELETE */}
 
-            № {item.breakId}
+              <Pressable
+                onPress={() =>
+                  confirmDelete(
+                    item
+                  )
+                }
+                style={({
+                  hovered,
+                  pressed,
+                }) => [
+                  styles.menuItem,
 
-          </Text>
+                  (hovered ||
+                    pressed) &&
+                    styles.menuItemHover,
+                ]}
+              >
+                <Feather
+                  name="trash-2"
+                  size={17}
+                  color="#E5484D"
+                />
 
-          <Feather
-            name="chevron-right"
-            size={18}
-            color="#94A3B8"
-          />
-
-        </View>
-
-  </TouchableOpacity>
-
+                <Text
+                  style={
+                    styles.deleteText
+                  }
+                >
+                  Устгах
+                </Text>
+              </Pressable>
+            </View>
+          )}
+      </View>
     );
-
   };
 
-  // ====================================
+  // ===================================================
   // UI
-  // ====================================
+  // ===================================================
 
   return (
-
-    <SafeAreaView style={styles.container}>
-
+    <SafeAreaView
+      style={
+        styles.container
+      }
+    >
+      {/* ================================= */}
       {/* HEADER */}
+      {/* ================================= */}
 
-      <View style={styles.header}>
+      <View
+        style={
+          styles.header
+        }
+      >
+        <Pressable
+          style={
+            styles.backButton
+          }
+          onPress={goBack}
+        >
+          <Feather
+            name="chevron-left"
+            size={27}
+            color="#1D2B43"
+          />
+        </Pressable>
 
-        <TouchableOpacity
-          onPress={() =>
-            router.back()
+        <Text
+          style={
+            styles.headerTitle
           }
         >
-
-          <Feather
-            name="arrow-left"
-            size={23}
-            color="#26364D"
-          />
-
-        </TouchableOpacity>
-
-        <Text style={styles.headerTitle}>
-          Амралтын хүсэлт
+          Хүсэлт
         </Text>
 
-        <TouchableOpacity
-          onPress={goHome}
+        <Pressable
+          style={
+            styles.addButton
+          }
+          onPress={
+            goCreateRequest
+          }
         >
-
-          <Feather
-            name="home"
-            size={22}
-            color="#26364D"
-          />
-
-        </TouchableOpacity>
-
-      </View>
-
-      {/* МИНИЙ ХҮСЭЛТҮҮД */}
-
-      <View style={styles.tabContainer}>
-
-        <View style={styles.activeTab}>
-
-          <Text style={styles.activeTabText}>
-            Миний хүсэлтүүд
-          </Text>
-
-        </View>
-
-        <View style={styles.inactiveTab}>
-
-          <Text style={styles.inactiveTabText}>
-            Нийт: {totalCount}
-          </Text>
-
-        </View>
-
-      </View>
-
-      {/* МЭДЭЭЛЭЛ */}
-
-      <View style={styles.infoBox}>
-
-        <Feather
-          name="info"
-          size={19}
-          color={BLUE}
-        />
-
-        <Text style={styles.infoBoxText}>
-          Та өөрийн илгээсэн амралт,
-          чөлөөний хүсэлтүүдийг эндээс
-          харах боломжтой.
-        </Text>
-
-      </View>
-
-      {/* ШИНЭ ХҮСЭЛТ */}
-
-      <View style={styles.addContainer}>
-
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={goCreateRequest}
-        >
-
           <Feather
             name="plus"
-            size={19}
+            size={20}
             color="#FFFFFF"
           />
 
-          <Text style={styles.addButtonText}>
-            Шинэ хүсэлт
+          <Text
+            style={
+              styles.addButtonText
+            }
+          >
+            Нэмэх
           </Text>
-
-        </TouchableOpacity>
-
+        </Pressable>
       </View>
 
-      {/* ЖАГСААЛТ */}
+      {/* ================================= */}
+      {/* TAB */}
+      {/* ================================= */}
 
-      {loading && !refreshing ? (
+      <View
+        style={
+          styles.tabContainer
+        }
+      >
+        <View
+          style={
+            styles.activeTab
+          }
+        >
+          <Text
+            style={
+              styles.activeTabText
+            }
+          >
+            Миний хүсэлт
+          </Text>
+        </View>
 
-        <View style={styles.center}>
+        <View
+          style={
+            styles.inactiveTab
+          }
+        >
+          <Text
+            style={
+              styles.inactiveTabText
+            }
+          >
+            Нийт {totalCount}
+          </Text>
+        </View>
+      </View>
 
+      {/* ================================= */}
+      {/* CATEGORY */}
+      {/* ================================= */}
+
+      <View
+        style={
+          styles.categoryBox
+        }
+      >
+        <View
+          style={
+            styles.categoryDot
+          }
+        />
+
+        <Text
+          style={
+            styles.categoryText
+          }
+        >
+          Амралт, чөлөө,
+          томилолт
+        </Text>
+      </View>
+
+      {/* ================================= */}
+      {/* LIST */}
+      {/* ================================= */}
+
+      {loading &&
+      !refreshing ? (
+        <View
+          style={
+            styles.center
+          }
+        >
           <ActivityIndicator
             size="large"
             color={BLUE}
           />
 
-          <Text style={styles.loadingText}>
-            Хүсэлтүүдийг ачаалж байна...
+          <Text
+            style={
+              styles.loadingText
+            }
+          >
+            Хүсэлтүүдийг
+            ачаалж байна...
           </Text>
-
         </View>
-
-      ) : error && requests.length === 0 ? (
-
-        <View style={styles.center}>
-
+      ) : error &&
+        requests.length ===
+          0 ? (
+        <View
+          style={
+            styles.center
+          }
+        >
           <Feather
             name="alert-circle"
-            size={45}
-            color="#EF4444"
+            size={40}
+            color="#E5484D"
           />
 
-          <Text style={styles.errorText}>
+          <Text
+            style={
+              styles.errorText
+            }
+          >
             {error}
           </Text>
 
-          <TouchableOpacity
-            style={styles.retryButton}
+          <Pressable
+            style={
+              styles.retryButton
+            }
             onPress={() =>
-              fetchRequests(1, false)
+              fetchRequests(
+                1,
+                false
+              )
             }
           >
-
-            <Text style={styles.retryText}>
+            <Text
+              style={
+                styles.retryText
+              }
+            >
               Дахин оролдох
             </Text>
-
-          </TouchableOpacity>
-
+          </Pressable>
         </View>
-
       ) : (
-
         <FlatList
           data={requests}
-
-          keyExtractor={(item) =>
-            String(item.breakId)
+          keyExtractor={(
+            item
+          ) =>
+            String(
+              item.breakId
+            )
           }
-
-          renderItem={renderRequest}
-
+          renderItem={
+            renderRequest
+          }
+          extraData={
+            openMenuId
+          }
+          style={
+            styles.list
+          }
           contentContainerStyle={
-            requests.length === 0
+            requests.length ===
+            0
               ? styles.emptyList
               : styles.listContent
           }
-
           refreshControl={
-
             <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[BLUE]}
-              tintColor={BLUE}
+              refreshing={
+                refreshing
+              }
+              onRefresh={
+                onRefresh
+              }
+              colors={[
+                BLUE,
+              ]}
+              tintColor={
+                BLUE
+              }
             />
-
           }
-
-          onEndReached={loadMore}
-
-          onEndReachedThreshold={0.3}
-
+          onEndReached={
+            loadMore
+          }
+          onEndReachedThreshold={
+            0.3
+          }
           ListFooterComponent={
-
             loadingMore ? (
-
               <ActivityIndicator
                 color={BLUE}
                 style={{
                   margin: 20,
                 }}
               />
-
             ) : null
-
           }
-
           ListEmptyComponent={
-
-            <View style={styles.emptyContainer}>
-
+            <View
+              style={
+                styles.emptyContainer
+              }
+            >
               <Feather
                 name="file-text"
-                size={65}
+                size={55}
                 color="#CBD5E1"
               />
 
-              <Text style={styles.emptyTitle}>
-                Одоогоор хүсэлт байхгүй байна.
+              <Text
+                style={
+                  styles.emptyTitle
+                }
+              >
+                Одоогоор хүсэлт
+                байхгүй байна.
               </Text>
 
-              <Text style={styles.emptyText}>
-                Шинэ амралтын хүсэлт
-                үүсгэхийн тулд дээрх
-                товчийг дарна уу.
+              <Text
+                style={
+                  styles.emptyText
+                }
+              >
+                Шинэ хүсэлт
+                үүсгэхийн тулд
+                Нэмэх товчийг
+                дарна уу.
               </Text>
-
             </View>
-
           }
-
         />
-
       )}
 
+      {/* ================================= */}
+      {/* BOTTOM NAV */}
+      {/* ================================= */}
+
+      <BottomNav
+        active="request"
+        userNm={userNm}
+        cstmNm={cstmNm}
+        userId={userId}
+        token={token}
+      />
     </SafeAreaView>
-
   );
-
 }
 
-// ======================================
+// =====================================================
 // STYLES
-// ======================================
-
-const styles = StyleSheet.create({
-
-  container: {
-    flex: 1,
-    backgroundColor: "#F8FAFD",
-  },
-
-  header: {
-    height: 60,
-    backgroundColor: "#FFFFFF",
-
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-
-    paddingHorizontal: 20,
-
-    borderBottomWidth: 1,
-    borderBottomColor: "#E8EDF5",
-  },
-
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#26364D",
-  },
-
-  tabContainer: {
-    flexDirection: "row",
-
-    marginHorizontal: 16,
-    marginTop: 18,
-
-    backgroundColor: "#EDF3FA",
-    borderRadius: 10,
-    padding: 3,
-  },
-
-  activeTab: {
-    flex: 1,
-    backgroundColor: BLUE,
-
-    paddingVertical: 12,
-    borderRadius: 8,
-
-    alignItems: "center",
-  },
-
-  activeTabText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#FFFFFF",
-  },
-
-  inactiveTab: {
-    flex: 1,
-
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-
-  inactiveTabText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#475569",
-  },
-
-  infoBox: {
-    marginHorizontal: 16,
-    marginTop: 14,
-
-    padding: 13,
-
-    backgroundColor: "#EAF3FF",
-    borderRadius: 10,
-
-    flexDirection: "row",
-    alignItems: "center",
-
-    gap: 10,
-  },
-
-  infoBoxText: {
-    flex: 1,
-
-    fontSize: 12,
-    lineHeight: 19,
-
-    color: "#475569",
-  },
-
-  addContainer: {
-    alignItems: "flex-end",
-
-    paddingHorizontal: 16,
-
-    marginTop: 12,
-    marginBottom: 10,
-  },
-
-  addButton: {
-    backgroundColor: BLUE,
-
-    borderRadius: 10,
-
-    paddingHorizontal: 17,
-    paddingVertical: 12,
-
-    flexDirection: "row",
-    alignItems: "center",
-
-    gap: 7,
-  },
-
-  addButtonText: {
-    color: "#FFFFFF",
-
-    fontSize: 14,
-    fontWeight: "700",
-  },
-
-  listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 100,
-
-    gap: 10,
-  },
-
-  card: {
-    backgroundColor: "#FFFFFF",
-
-    borderRadius: 12,
-    padding: 15,
-
-    borderWidth: 1,
-    borderColor: "#E1E8F2",
-  },
-
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-
-    gap: 8,
-    marginBottom: 10,
-  },
-
-  cardTitle: {
-    flex: 1,
-
-    fontSize: 15,
-    fontWeight: "700",
-
-    color: "#26364D",
-  },
-
-  statusBadge: {
-    borderRadius: 20,
-
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-
-  statusText: {
-    fontSize: 11,
-    fontWeight: "600",
-  },
-
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-
-    gap: 9,
-    marginTop: 7,
-  },
-
-  dateText: {
-    fontSize: 13,
-    color: "#475569",
-  },
-
-  infoText: {
-    fontSize: 12,
-    color: "#64748B",
-  },
-
-  noteBox: {
-    marginTop: 12,
-
-    padding: 10,
-
-    backgroundColor: "#F8FAFD",
-    borderRadius: 8,
-  },
-
-  noteText: {
-    fontSize: 12,
-    lineHeight: 19,
-
-    color: "#475569",
-  },
-
-  cardFooter: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-
-    marginTop: 12,
-    paddingTop: 10,
-
-    borderTopWidth: 1,
-    borderTopColor: "#EDF0F5",
-  },
-
-  requestId: {
-    fontSize: 11,
-    color: "#94A3B8",
-  },
-
-  center: {
-    flex: 1,
-
-    alignItems: "center",
-    justifyContent: "center",
-
-    padding: 25,
-    gap: 15,
-  },
-
-  loadingText: {
-    fontSize: 13,
-    color: "#64748B",
-  },
-
-  errorText: {
-    fontSize: 13,
-    color: "#DC2626",
-
-    textAlign: "center",
-  },
-
-  retryButton: {
-    backgroundColor: BLUE,
-
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-
-    borderRadius: 9,
-  },
-
-  retryText: {
-    color: "#FFFFFF",
-    fontWeight: "600",
-  },
-
-  emptyList: {
-    flexGrow: 1,
-
-    justifyContent: "center",
-
-    paddingHorizontal: 25,
-    paddingBottom: 90,
-  },
-
-  emptyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-
-    padding: 20,
-    gap: 15,
-  },
-
-  emptyTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-
-    color: "#26364D",
-    textAlign: "center",
-  },
-
-  emptyText: {
-    fontSize: 13,
-    color: "#64748B",
-
-    textAlign: "center",
-    lineHeight: 20,
-  },
-
-});
+// =====================================================
+
+const styles =
+  StyleSheet.create({
+    // =================================================
+    // PAGE
+    // =================================================
+
+    container: {
+      flex: 1,
+      backgroundColor:
+        "#F8FBFF",
+    },
+
+    // =================================================
+    // HEADER
+    // =================================================
+
+    header: {
+      height: 80,
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 16,
+      backgroundColor:
+        "#F8FBFF",
+    },
+
+    backButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor:
+        "#FFFFFF",
+      justifyContent:
+        "center",
+      alignItems: "center",
+      marginRight: 12,
+    },
+
+    headerTitle: {
+      flex: 1,
+      fontSize: 22,
+      fontWeight: "700",
+      color: "#1D2B43",
+    },
+
+    addButton: {
+      height: 36,
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 12,
+      borderRadius: 12,
+      backgroundColor: BLUE,
+      gap: 4,
+    },
+
+    addButtonText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: "#FFFFFF",
+    },
+
+    // =================================================
+    // TAB
+    // =================================================
+
+    tabContainer: {
+      height: 43,
+      flexDirection: "row",
+      marginHorizontal: 16,
+      marginTop: 6,
+      marginBottom: 12,
+      padding: 2,
+      borderWidth: 1,
+      borderColor: "#D8E5F8",
+      backgroundColor:
+        "#F3F7FF",
+      borderRadius: 12,
+    },
+
+    activeTab: {
+      flex: 1,
+      backgroundColor: BLUE,
+      borderRadius: 10,
+      alignItems: "center",
+      justifyContent:
+        "center",
+    },
+
+    activeTabText: {
+      color: "#FFFFFF",
+      fontSize: 13,
+      fontWeight: "700",
+    },
+
+    inactiveTab: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent:
+        "center",
+    },
+
+    inactiveTabText: {
+      color: "#64748B",
+      fontSize: 13,
+    },
+
+    // =================================================
+    // CATEGORY
+    // =================================================
+
+    categoryBox: {
+      height: 29,
+      marginHorizontal: 16,
+      marginBottom: 14,
+      borderRadius: 7,
+      backgroundColor:
+        "#EDF7FF",
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 9,
+      gap: 17,
+    },
+
+    categoryDot: {
+      width: 19,
+      height: 19,
+      borderRadius: 10,
+      backgroundColor: BLUE,
+    },
+
+    categoryText: {
+      fontSize: 12,
+      color: "#64748B",
+    },
+
+    // =================================================
+    // LIST
+    // =================================================
+
+    list: {
+      flex: 1,
+    },
+
+    listContent: {
+      paddingHorizontal: 16,
+      paddingTop: 10,
+      paddingBottom: 30,
+      gap: 11,
+    },
+
+    cardWrapper: {
+      position: "relative",
+      overflow: "visible",
+    },
+
+    // =================================================
+    // CARD
+    // =================================================
+
+    card: {
+      backgroundColor:
+        "#FFFFFF",
+      borderWidth: 1,
+      borderColor: "#DCE7FA",
+      borderRadius: 17,
+      paddingHorizontal: 14,
+      paddingVertical: 11,
+      minHeight: 106,
+    },
+
+    cardHover: {
+      backgroundColor:
+        "#F0F7FF",
+      borderColor: BLUE,
+    },
+
+    cardHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "space-between",
+      gap: 5,
+      marginBottom: 5,
+    },
+
+    cardTitle: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: "700",
+      color: "#1D2B43",
+    },
+
+    cardActions: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 3,
+    },
+
+    statusBadge: {
+      borderRadius: 20,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      maxWidth: 105,
+    },
+
+    statusText: {
+      fontSize: 10,
+      fontWeight: "500",
+      textAlign: "center",
+    },
+
+    moreButton: {
+      width: 24,
+      height: 30,
+      justifyContent:
+        "center",
+      alignItems: "center",
+    },
+
+    dateText: {
+      fontSize: 12,
+      color: "#475569",
+      marginBottom: 6,
+    },
+
+    infoText: {
+      fontSize: 11,
+      color: "#73839D",
+      marginBottom: 4,
+    },
+
+    // =================================================
+    // POPUP
+    // =================================================
+
+    popupMenu: {
+      position: "absolute",
+      top: 38,
+      right: 27,
+      width: 112,
+      backgroundColor:
+        "#FFFFFF",
+      borderWidth: 1,
+      borderColor: "#DCE7FA",
+      borderRadius: 12,
+      padding: 6,
+
+      // Card-аас дээр харагдана
+      zIndex: 1000,
+      elevation: 10,
+
+      // Web
+      boxShadow:
+        "0px 3px 12px rgba(0,0,0,0.10)",
+    },
+
+    menuItem: {
+      height: 34,
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 9,
+      borderRadius: 6,
+      gap: 9,
+    },
+
+    menuItemHover: {
+      backgroundColor:
+        "#F0F7FF",
+    },
+
+    menuDivider: {
+      height: 1,
+      backgroundColor:
+        "#EDF0F5",
+      marginVertical: 3,
+    },
+
+    editText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: "#2388EF",
+    },
+
+    deleteText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: "#E5484D",
+    },
+
+    // =================================================
+    // LOADING / ERROR
+    // =================================================
+
+    center: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent:
+        "center",
+      padding: 25,
+      gap: 15,
+    },
+
+    loadingText: {
+      fontSize: 13,
+      color: "#64748B",
+    },
+
+    errorText: {
+      fontSize: 13,
+      color: "#DC2626",
+      textAlign: "center",
+    },
+
+    retryButton: {
+      backgroundColor: BLUE,
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      borderRadius: 9,
+    },
+
+    retryText: {
+      color: "#FFFFFF",
+      fontWeight: "600",
+    },
+
+    // =================================================
+    // EMPTY
+    // =================================================
+
+    emptyList: {
+      flexGrow: 1,
+      justifyContent:
+        "center",
+      paddingHorizontal: 25,
+      paddingBottom: 50,
+    },
+
+    emptyContainer: {
+      alignItems: "center",
+      justifyContent:
+        "center",
+      padding: 20,
+      gap: 15,
+    },
+
+    emptyTitle: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: "#26364D",
+      textAlign: "center",
+    },
+
+    emptyText: {
+      fontSize: 13,
+      color: "#64748B",
+      textAlign: "center",
+      lineHeight: 20,
+    },
+  });

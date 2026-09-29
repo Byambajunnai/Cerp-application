@@ -1,34 +1,96 @@
-
 import { Feather } from "@expo/vector-icons";
-
 import {
-    router,
-    useLocalSearchParams,
+  router,
+  useLocalSearchParams,
 } from "expo-router";
 
 import {
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  ActivityIndicator,
+  Alert,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 
-const BLUE = "#2075D2";
+import BottomNav from "../components/BottomNav";
+import { API_URL } from "../config/api";
 
-// ======================================
-// ОГНОО ФОРМАТЛАХ
-// ======================================
+// =====================================================
+// ТОХИРГОО
+// =====================================================
+
+const BLUE = "#1985DE";
+
+const TIMEBREAK_URL =
+  `${API_URL}/api/mobile/timebreak`;
+
+// =====================================================
+// TYPE
+// =====================================================
+
+type TimeBreakDetail = {
+  breakId?: string;
+
+  breakType?: string;
+  breakTypeNm?: string;
+
+  breakSalary?: string;
+  breakSalaryNm?: string;
+
+  breakstartDate?: string;
+  breakfinishDate?: string;
+
+  workDays?: string | number;
+
+  breakNote?: string;
+
+  prgsStatusCd?: string;
+  prgsStatusNm?: string;
+
+  regDate?: string;
+  regNm?: string;
+
+  cstmorgCd?: string;
+  cstmNm?: string;
+
+  userPositionNm?: string;
+
+  fileId?: string;
+  fileNm?: string;
+
+  checkNm?: string;
+  checkDate?: string;
+
+  confirmNm?: string;
+  confirmDate?: string;
+
+  message?: string;
+};
+
+// =====================================================
+// DATE
+// =====================================================
 
 const formatDate = (
-  date?: string
+  date?: string | null
 ): string => {
-
-  if (!date) return "-";
+  if (!date) {
+    return "-";
+  }
 
   const value = String(date);
 
+  // 20260929
   if (/^\d{8}$/.test(value)) {
     return (
       value.substring(0, 4) +
@@ -44,25 +106,64 @@ const formatDate = (
     .replace(/-/g, ".");
 };
 
-// ======================================
-// ТӨЛӨВИЙН ӨНГӨ
-// ======================================
+// =====================================================
+// FILE NAME
+// =====================================================
+
+const getFileName = (
+  value?: string
+) => {
+  if (!value) {
+    return "";
+  }
+
+  try {
+    const normalized =
+      value.replace(/\\/g, "/");
+
+    const parts =
+      normalized.split("/");
+
+    return decodeURIComponent(
+      parts[
+        parts.length - 1
+      ] || ""
+    );
+  } catch {
+    const normalized =
+      value.replace(/\\/g, "/");
+
+    const parts =
+      normalized.split("/");
+
+    return (
+      parts[
+        parts.length - 1
+      ] || value
+    );
+  }
+};
+
+// =====================================================
+// STATUS STYLE
+// =====================================================
 
 const getStatusStyle = (
   status?: string
 ) => {
-
   const value = String(
     status || ""
-  ).toLowerCase();
+  )
+    .trim()
+    .toLowerCase();
 
   if (
     value.includes("татгалз") ||
     value.includes("буцаа")
   ) {
     return {
-      backgroundColor: "#FEE2E2",
-      color: "#DC2626",
+      backgroundColor: "#FDEBED",
+      color: "#D94B55",
     };
   }
 
@@ -71,103 +172,148 @@ const getStatusStyle = (
     value.includes("зөвшөөр")
   ) {
     return {
-      backgroundColor: "#DCFCE7",
-      color: "#16834A",
+      backgroundColor: "#E4F7ED",
+      color: "#21945B",
+    };
+  }
+
+  if (
+    value.includes("илгээ")
+  ) {
+    return {
+      backgroundColor: "#E7F0FF",
+      color: "#3275D8",
+    };
+  }
+
+  if (
+    value.includes("хадгал")
+  ) {
+    return {
+      backgroundColor: "#F1F3F6",
+      color: "#64748B",
     };
   }
 
   return {
-    backgroundColor: "#FFF1D6",
+    backgroundColor: "#FFF0D8",
     color: "#C77700",
   };
 };
 
-// ======================================
-// МЭДЭЭЛЛИЙН МӨР
-// ======================================
+// =====================================================
+// STATUS STEP
+// =====================================================
 
-function InfoRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ComponentProps<
-    typeof Feather
-  >["name"];
-  label: string;
-  value?: string | number;
-}) {
+const getCurrentStep = (
+  statusCd?: string,
+  statusNm?: string
+) => {
+  const code = String(
+    statusCd || ""
+  ).trim();
 
-  return (
+  const name = String(
+    statusNm || ""
+  )
+    .trim()
+    .toLowerCase();
 
-    <View style={styles.infoRow}>
+  // -----------------------------------
+  // 1. Хадгалсан
+  // -----------------------------------
 
-      <View style={styles.iconBox}>
+  if (
+    code === "10" ||
+    name.includes("хадгал")
+  ) {
+    return 1;
+  }
 
-        <Feather
-          name={icon}
-          size={19}
-          color={BLUE}
-        />
+  // -----------------------------------
+  // 2. Илгээсэн
+  // -----------------------------------
 
-      </View>
+  if (
+    code === "20" ||
+    name.includes("илгээ")
+  ) {
+    return 2;
+  }
 
-      <View style={styles.infoContent}>
+  // -----------------------------------
+  // 3. Дарга баталсан / шалгуулсан
+  // -----------------------------------
 
-        <Text style={styles.infoLabel}>
-          {label}
-        </Text>
+  if (
+    code === "30" ||
+    name.includes("шалгуул") ||
+    name.includes("хяна") ||
+    name.includes("дарга")
+  ) {
+    return 3;
+  }
 
-        <Text style={styles.infoValue}>
-          {value === undefined ||
-          value === null ||
-          value === ""
-            ? "-"
-            : String(value)}
-        </Text>
+  // -----------------------------------
+  // 4. Шийдвэрлэсэн
+  // -----------------------------------
 
-      </View>
+  if (
+    code === "40" ||
+    name.includes("шийдвэр") ||
+    name.includes("батлаг") ||
+    name.includes("дуус")
+  ) {
+    return 4;
+  }
 
-    </View>
+  return 1;
+};
 
-  );
-
-}
-
-// ======================================
-// DETAIL SCREEN
-// ======================================
+// =====================================================
+// MAIN
+// =====================================================
 
 export default function LeaveDetailScreen() {
+  // ===================================================
+  // PARAMS
+  // ===================================================
 
-  const params = useLocalSearchParams<{
-    breakId?: string;
-    breakTypeNm?: string;
-    prgsStatusNm?: string;
-    breakstartDate?: string;
-    breakfinishDate?: string;
-    regDate?: string;
-    breakSalaryNm?: string;
-    workDays?: string;
-    breakNote?: string;
+  const params =
+    useLocalSearchParams<{
+      breakId?: string;
+      breakType?: string;
 
-    userNm?: string;
-    cstmNm?: string;
-    userId?: string;
-    cstmCd?: string;
-    token?: string;
-  }>();
+      breakTypeNm?: string;
+
+      prgsStatusCd?: string;
+      prgsStatusNm?: string;
+
+      breakstartDate?: string;
+      breakfinishDate?: string;
+
+      regDate?: string;
+
+      breakSalary?: string;
+      breakSalaryNm?: string;
+
+      workDays?: string;
+
+      breakNote?: string;
+
+      fileId?: string;
+      fileNm?: string;
+
+      userNm?: string;
+      cstmNm?: string;
+      userId?: string;
+      cstmCd?: string;
+      token?: string;
+    }>();
 
   const {
     breakId,
-    breakTypeNm,
-    prgsStatusNm,
-    breakstartDate,
-    breakfinishDate,
-    regDate,
-    breakSalaryNm,
-    workDays,
-    breakNote,
+    breakType,
 
     userNm,
     cstmNm,
@@ -176,494 +322,2053 @@ export default function LeaveDetailScreen() {
     token,
   } = params;
 
-  const statusStyle =
-    getStatusStyle(prgsStatusNm);
+  // ===================================================
+  // STATE
+  // ===================================================
 
-  // ====================================
-  // HOME РУУ БУЦАХ
-  // ====================================
+  const [
+    detail,
+    setDetail,
+  ] =
+    useState<TimeBreakDetail | null>(
+      null
+    );
 
-  const goHome = () => {
+  const [
+    loading,
+    setLoading,
+  ] =
+    useState(true);
 
-    router.replace({
-      pathname: "/home",
+  const [
+    sending,
+    setSending,
+  ] =
+    useState(false);
 
-      params: {
-        userNm: userNm || "",
-        cstmNm: cstmNm || "",
-        userId: userId || "",
-        cstmCd: cstmCd || "",
-        token: token || "",
-      },
-    });
+  // ===================================================
+  // NAVIGATION PARAMS
+  // ===================================================
 
+  const navigationParams = {
+    userNm: userNm || "",
+    cstmNm: cstmNm || "",
+    userId: userId || "",
+    cstmCd: cstmCd || "",
+    token: token || "",
   };
 
-  // ====================================
+  // ===================================================
+  // MESSAGE
+  // ===================================================
+
+  const showMessage = (
+    title: string,
+    message: string
+  ) => {
+    if (
+      Platform.OS === "web"
+    ) {
+      window.alert(
+        `${title}\n${message}`
+      );
+    } else {
+      Alert.alert(
+        title,
+        message
+      );
+    }
+  };
+
+  // ===================================================
+  // DEBUG
+  // ===================================================
+
+  useEffect(() => {
+    console.log(
+      "===================================="
+    );
+
+    console.log(
+      "LEAVE DETAIL PARAMS"
+    );
+
+    console.log(
+      "BREAK ID:",
+      breakId
+    );
+
+    console.log(
+      "BREAK TYPE:",
+      breakType
+    );
+
+    console.log(
+      "TOKEN:",
+      token
+        ? "TOKEN БАЙНА"
+        : "TOKEN БАЙХГҮЙ"
+    );
+
+    console.log(
+      "===================================="
+    );
+  }, [
+    breakId,
+    breakType,
+    token,
+  ]);
+
+  // ===================================================
+  // GET DETAIL
+  // ===================================================
+
+  const loadDetail =
+    useCallback(
+      async () => {
+        try {
+          setLoading(true);
+
+          // ---------------------------------
+          // VALIDATION
+          // ---------------------------------
+
+          if (!breakId) {
+            throw new Error(
+              "Хүсэлтийн дугаар олдсонгүй."
+            );
+          }
+
+          if (!breakType) {
+            throw new Error(
+              "Хүсэлтийн төрөл олдсонгүй."
+            );
+          }
+
+          if (!token) {
+            throw new Error(
+              "Нэвтрэх мэдээлэл олдсонгүй."
+            );
+          }
+
+          // ---------------------------------
+          // URL
+          // ---------------------------------
+
+          const url =
+            `${TIMEBREAK_URL}/` +
+            `${encodeURIComponent(
+              String(
+                breakId
+              )
+            )}` +
+            `?breakType=${encodeURIComponent(
+              String(
+                breakType
+              )
+            )}`;
+
+          console.log(
+            "===================================="
+          );
+
+          console.log(
+            "DETAIL URL:",
+            url
+          );
+
+          // ---------------------------------
+          // REQUEST
+          // ---------------------------------
+
+          const response =
+            await fetch(
+              url,
+              {
+                method: "GET",
+
+                headers: {
+                  Accept:
+                    "application/json",
+
+                  Authorization:
+                    `Bearer ${token}`,
+                },
+              }
+            );
+
+          // ---------------------------------
+          // RESPONSE
+          // ---------------------------------
+
+          const responseText =
+            await response.text();
+
+          console.log(
+            "DETAIL STATUS:",
+            response.status
+          );
+
+          console.log(
+            "DETAIL RESPONSE:",
+            responseText
+          );
+
+          console.log(
+            "===================================="
+          );
+
+          let data: any = {};
+
+          if (
+            responseText.trim()
+          ) {
+            try {
+              data =
+                JSON.parse(
+                  responseText
+                );
+            } catch {
+              throw new Error(
+                `Сервер JSON бус хариу буцаалаа. HTTP ${response.status}`
+              );
+            }
+          }
+
+          // ---------------------------------
+          // ERROR
+          // ---------------------------------
+
+          if (
+            response.status === 401
+          ) {
+            throw new Error(
+              "Нэвтрэх эрхийн хугацаа дууссан байна."
+            );
+          }
+
+          if (!response.ok) {
+            throw new Error(
+              data?.message ||
+                `Хүсэлтийн мэдээлэл авахад алдаа гарлаа. HTTP ${response.status}`
+            );
+          }
+
+          // ---------------------------------
+          // API заримдаа data/result дотор
+          // object буцааж болох тул шалгана.
+          // ---------------------------------
+
+          const result =
+            data?.data &&
+            typeof data.data ===
+              "object"
+              ? data.data
+              : data?.result &&
+                typeof data.result ===
+                  "object"
+              ? data.result
+              : data;
+
+          // ---------------------------------
+          // FALLBACK
+          // list-ээс дамжсан мэдээллийг
+          // detail response-д байхгүй бол ашиглана.
+          // ---------------------------------
+
+          const normalized:
+            TimeBreakDetail = {
+            ...result,
+
+            breakId:
+              result?.breakId ||
+              breakId,
+
+            breakType:
+              result?.breakType ||
+              breakType,
+
+            breakTypeNm:
+              result?.breakTypeNm ||
+              params.breakTypeNm ||
+              "",
+
+            prgsStatusCd:
+              result?.prgsStatusCd ||
+              params.prgsStatusCd ||
+              "",
+
+            prgsStatusNm:
+              result?.prgsStatusNm ||
+              params.prgsStatusNm ||
+              "",
+
+            breakstartDate:
+              result?.breakstartDate ||
+              params.breakstartDate ||
+              "",
+
+            breakfinishDate:
+              result?.breakfinishDate ||
+              params.breakfinishDate ||
+              "",
+
+            regDate:
+              result?.regDate ||
+              params.regDate ||
+              "",
+
+            breakSalary:
+              result?.breakSalary ||
+              params.breakSalary ||
+              "",
+
+            breakSalaryNm:
+              result?.breakSalaryNm ||
+              params.breakSalaryNm ||
+              "",
+
+            workDays:
+              result?.workDays ??
+              params.workDays ??
+              "",
+
+            breakNote:
+              result?.breakNote ||
+              params.breakNote ||
+              "",
+
+            fileId:
+              result?.fileId ||
+              params.fileId ||
+              "",
+
+            fileNm:
+              result?.fileNm ||
+              params.fileNm ||
+              "",
+          };
+
+          console.log(
+            "NORMALIZED DETAIL:",
+            normalized
+          );
+
+          setDetail(
+            normalized
+          );
+        } catch (
+          error: unknown
+        ) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Хүсэлтийн мэдээлэл авахад алдаа гарлаа.";
+
+          console.error(
+            "DETAIL ERROR:",
+            message
+          );
+
+          showMessage(
+            "Алдаа",
+            message
+          );
+        } finally {
+          setLoading(false);
+        }
+      },
+      [
+        breakId,
+        breakType,
+        token,
+
+        params.breakTypeNm,
+        params.prgsStatusCd,
+        params.prgsStatusNm,
+
+        params.breakstartDate,
+        params.breakfinishDate,
+
+        params.regDate,
+
+        params.breakSalary,
+        params.breakSalaryNm,
+
+        params.workDays,
+        params.breakNote,
+
+        params.fileId,
+        params.fileNm,
+      ]
+    );
+
+  // ===================================================
+  // LOAD
+  // ===================================================
+
+  useEffect(() => {
+    loadDetail();
+  }, [loadDetail]);
+
+  // ===================================================
+  // BACK
+  // ===================================================
+
+  const goBack = () => {
+    router.back();
+  };
+
+  // ===================================================
+  // EDIT
+  // ===================================================
+
+  const handleEdit = () => {
+    if (!detail) {
+      return;
+    }
+
+    // Зөвхөн хадгалсан хүсэлт
+    if (
+      String(
+        detail.prgsStatusCd
+      ) !== "10"
+    ) {
+      showMessage(
+        "Анхааруулга",
+        "Зөвхөн хадгалсан хүсэлтийг засах боломжтой."
+      );
+
+      return;
+    }
+
+    router.push({
+      pathname:
+        "/leave-edit" as any,
+
+      params: {
+        ...navigationParams,
+
+        breakId:
+          detail.breakId ||
+          "",
+
+        breakType:
+          detail.breakType ||
+          breakType ||
+          "",
+
+        breakTypeNm:
+          detail.breakTypeNm ||
+          "",
+
+        prgsStatusCd:
+          detail.prgsStatusCd ||
+          "",
+
+        prgsStatusNm:
+          detail.prgsStatusNm ||
+          "",
+
+        breakstartDate:
+          detail.breakstartDate ||
+          "",
+
+        breakfinishDate:
+          detail.breakfinishDate ||
+          "",
+
+        breakSalary:
+          detail.breakSalary ||
+          "",
+
+        breakSalaryNm:
+          detail.breakSalaryNm ||
+          "",
+
+        workDays:
+          String(
+            detail.workDays ??
+              ""
+          ),
+
+        breakNote:
+          detail.breakNote ||
+          "",
+
+        fileId:
+          detail.fileId ||
+          "",
+
+        fileNm:
+          detail.fileNm ||
+          "",
+      },
+    });
+  };
+
+  // ===================================================
+  // SEND REQUEST
+  // ===================================================
+
+  const sendRequest =
+    async () => {
+      if (
+        !detail ||
+        sending
+      ) {
+        return;
+      }
+
+      // ---------------------------------
+      // Зөвхөн хадгалсан үед илгээнэ
+      // ---------------------------------
+
+      if (
+        String(
+          detail.prgsStatusCd
+        ) !== "10"
+      ) {
+        showMessage(
+          "Анхааруулга",
+          "Зөвхөн хадгалсан хүсэлтийг илгээх боломжтой."
+        );
+
+        return;
+      }
+
+      const requestBreakId =
+        detail.breakId ||
+        breakId;
+
+      const requestBreakType =
+        detail.breakType ||
+        breakType;
+
+      if (!requestBreakId) {
+        showMessage(
+          "Алдаа",
+          "Хүсэлтийн дугаар олдсонгүй."
+        );
+
+        return;
+      }
+
+      if (
+        !requestBreakType
+      ) {
+        showMessage(
+          "Алдаа",
+          "Хүсэлтийн төрөл олдсонгүй."
+        );
+
+        return;
+      }
+
+      if (!token) {
+        showMessage(
+          "Алдаа",
+          "Нэвтрэх мэдээлэл олдсонгүй."
+        );
+
+        return;
+      }
+
+      try {
+        setSending(true);
+
+        // =================================
+        // POST TimeBreak - 6. ИЛГЭЭХ
+        // =================================
+
+        const url =
+          `${TIMEBREAK_URL}/` +
+          `${encodeURIComponent(
+            String(
+              requestBreakId
+            )
+          )}` +
+          `/send` +
+          `?breakType=${encodeURIComponent(
+            String(
+              requestBreakType
+            )
+          )}`;
+
+        console.log(
+          "===================================="
+        );
+
+        console.log(
+          "SEND REQUEST"
+        );
+
+        console.log(
+          "SEND URL:",
+          url
+        );
+
+        console.log(
+          "BREAK ID:",
+          requestBreakId
+        );
+
+        console.log(
+          "BREAK TYPE:",
+          requestBreakType
+        );
+
+        // =================================
+        // REQUEST
+        // =================================
+
+        const response =
+          await fetch(
+            url,
+            {
+              method: "POST",
+
+              headers: {
+                Accept:
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+          );
+
+        const responseText =
+          await response.text();
+
+        console.log(
+          "SEND STATUS:",
+          response.status
+        );
+
+        console.log(
+          "SEND RESPONSE:",
+          responseText
+        );
+
+        console.log(
+          "===================================="
+        );
+
+        let data: any = {};
+
+        if (
+          responseText.trim()
+        ) {
+          try {
+            data =
+              JSON.parse(
+                responseText
+              );
+          } catch {
+            // Амжилттай мөртлөө text
+            // буцааж болох тул response.ok
+            // бол шууд алдаа гэж үзэхгүй.
+            data = {
+              message:
+                responseText,
+            };
+          }
+        }
+
+        if (
+          response.status === 401
+        ) {
+          throw new Error(
+            "Нэвтрэх эрхийн хугацаа дууссан байна."
+          );
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            data?.message ||
+              `Хүсэлт илгээхэд алдаа гарлаа. HTTP ${response.status}`
+          );
+        }
+
+        // =================================
+        // ИЛГЭЭСНИЙ ДАРАА DETAIL REFRESH
+        // =================================
+
+        await loadDetail();
+
+        showMessage(
+          "Амжилттай",
+          data?.message ||
+            "Хүсэлт амжилттай илгээгдлээ."
+        );
+      } catch (
+        error: unknown
+      ) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Хүсэлт илгээхэд алдаа гарлаа.";
+
+        console.error(
+          "SEND ERROR:",
+          message
+        );
+
+        showMessage(
+          "Алдаа",
+          message
+        );
+      } finally {
+        setSending(false);
+      }
+    };
+
+  // ===================================================
+  // SEND CONFIRM
+  // ===================================================
+
+  const handleSend = () => {
+    if (
+      Platform.OS === "web"
+    ) {
+      const confirmed =
+        window.confirm(
+          "Хүсэлтийг батлагчид илгээх үү?"
+        );
+
+      if (confirmed) {
+        sendRequest();
+      }
+
+      return;
+    }
+
+    Alert.alert(
+      "Хүсэлт илгээх",
+      "Хүсэлтийг батлагчид илгээх үү?",
+      [
+        {
+          text: "Болих",
+          style: "cancel",
+        },
+
+        {
+          text: "Илгээх",
+          onPress:
+            sendRequest,
+        },
+      ]
+    );
+  };
+
+  // ===================================================
+  // FILE
+  // ===================================================
+
+  const handleFile = () => {
+    if (
+      !detail?.fileId
+    ) {
+      showMessage(
+        "Анхааруулга",
+        "Хавсаргасан файл олдсонгүй."
+      );
+
+      return;
+    }
+
+    console.log(
+      "FILE ID:",
+      detail.fileId
+    );
+
+    console.log(
+      "FILE NAME:",
+      detail.fileNm
+    );
+
+    /*
+      Танай backend-ийн файл татах API
+      тодорхой болмогц энд fetch/open хийнэ.
+
+      Одоогоор fileId болон fileNm
+      зөв ирж байгаа эсэхийг харуулна.
+    */
+
+    showMessage(
+      "Хавсаргасан файл",
+      detail.fileNm
+        ? getFileName(
+            detail.fileNm
+          )
+        : `Файлын ID: ${detail.fileId}`
+    );
+  };
+
+  // ===================================================
+  // LOADING
+  // ===================================================
+
+  if (loading) {
+    return (
+      <SafeAreaView
+        style={
+          styles.container
+        }
+      >
+        <View
+          style={
+            styles.center
+          }
+        >
+          <ActivityIndicator
+            size="large"
+            color={BLUE}
+          />
+
+          <Text
+            style={
+              styles.loadingText
+            }
+          >
+            Хүсэлтийн мэдээлэл
+            ачаалж байна...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ===================================================
+  // EMPTY
+  // ===================================================
+
+  if (!detail) {
+    return (
+      <SafeAreaView
+        style={
+          styles.container
+        }
+      >
+        <View
+          style={
+            styles.center
+          }
+        >
+          <Feather
+            name="alert-circle"
+            size={45}
+            color="#94A3B8"
+          />
+
+          <Text
+            style={
+              styles.errorTitle
+            }
+          >
+            Хүсэлтийн мэдээлэл
+            олдсонгүй.
+          </Text>
+
+          <Pressable
+            style={
+              styles.retryButton
+            }
+            onPress={
+              loadDetail
+            }
+          >
+            <Text
+              style={
+                styles.retryText
+              }
+            >
+              Дахин оролдох
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={
+              styles.backTextButton
+            }
+            onPress={goBack}
+          >
+            <Text
+              style={
+                styles.backText
+              }
+            >
+              Буцах
+            </Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ===================================================
+  // VARIABLES
+  // ===================================================
+
+  const statusStyle =
+    getStatusStyle(
+      detail.prgsStatusNm
+    );
+
+  const isSaved =
+    String(
+      detail.prgsStatusCd ||
+        ""
+    ) === "10";
+
+  const hasFile =
+    Boolean(
+      detail.fileId &&
+        String(
+          detail.fileId
+        ) !== "null"
+    );
+
+  const fileName =
+    getFileName(
+      detail.fileNm
+    );
+
+  // ===================================================
   // UI
-  // ====================================
+  // ===================================================
 
   return (
-
-    <SafeAreaView style={styles.container}>
-
+    <SafeAreaView
+      style={
+        styles.container
+      }
+    >
+      {/* ================================= */}
       {/* HEADER */}
+      {/* ================================= */}
 
-      <View style={styles.header}>
-
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.headerButton}
+      <View
+        style={
+          styles.header
+        }
+      >
+        <Pressable
+          style={
+            styles.backButton
+          }
+          onPress={goBack}
         >
-
           <Feather
-            name="arrow-left"
-            size={23}
-            color="#26364D"
+            name="chevron-left"
+            size={27}
+            color="#1D2B43"
           />
+        </Pressable>
 
-        </TouchableOpacity>
-
-        <Text style={styles.headerTitle}>
-          Хүсэлтийн дэлгэрэнгүй
+        <Text
+          style={
+            styles.headerTitle
+          }
+        >
+          Хүсэлт
         </Text>
 
-        <TouchableOpacity
-          onPress={goHome}
-          style={styles.headerButton}
-        >
-
-          <Feather
-            name="home"
-            size={22}
-            color="#26364D"
-          />
-
-        </TouchableOpacity>
-
+        <View
+          style={
+            styles.headerRight
+          }
+        />
       </View>
 
+      {/* ================================= */}
       {/* CONTENT */}
+      {/* ================================= */}
 
       <ScrollView
+        style={
+          styles.scrollView
+        }
         contentContainerStyle={
           styles.scrollContent
         }
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={
+          false
+        }
       >
+        {/* =============================== */}
+        {/* REQUEST INFO */}
+        {/* =============================== */}
 
-        {/* ХҮСЭЛТИЙН ҮНДСЭН МЭДЭЭЛЭЛ */}
+        <View
+          style={
+            styles.mainCard
+          }
+        >
+          {/* CARD HEADER */}
 
-        <View style={styles.card}>
-
-          <View style={styles.cardHeader}>
-
-            <View style={styles.titleContent}>
-
-              <Text style={styles.smallLabel}>
-                ХҮСЭЛТИЙН ДУГААР
-              </Text>
-
-              <Text style={styles.requestNumber}>
-                № {breakId || "-"}
-              </Text>
-
-            </View>
+          <View
+            style={
+              styles.cardHeader
+            }
+          >
+            <Text
+              style={
+                styles.cardTitle
+              }
+            >
+              Хүсэлтийн мэдээлэл
+            </Text>
 
             <View
               style={[
                 styles.statusBadge,
+
                 {
                   backgroundColor:
                     statusStyle.backgroundColor,
                 },
               ]}
             >
-
               <Text
                 style={[
                   styles.statusText,
+
                   {
                     color:
                       statusStyle.color,
                   },
                 ]}
               >
-                {prgsStatusNm ||
-                  "Тодорхойгүй"}
+                {detail.prgsStatusNm ||
+                  "-"}
               </Text>
-
             </View>
-
           </View>
 
-          <View style={styles.divider} />
-
-          {/* ХҮСЭЛТИЙН ТӨРӨЛ */}
+          {/* TYPE */}
 
           <InfoRow
-            icon="file-text"
-            label="Хүсэлтийн төрөл"
+            label="Төрөл"
             value={
-              breakTypeNm ||
-              "Амралтын хүсэлт"
+              detail.breakTypeNm ||
+              "-"
             }
           />
 
-          {/* ЭХЛЭХ ОГНОО */}
+          {/* NAME */}
 
           <InfoRow
-            icon="calendar"
+            label="Овог, нэр"
+            value={
+              detail.regNm ||
+              userNm ||
+              "-"
+            }
+          />
+
+          {/* ORGANIZATION */}
+
+          <InfoRow
+            label="ГТХ"
+            value={
+              detail.cstmNm ||
+              detail.cstmorgCd ||
+              cstmNm ||
+              "-"
+            }
+            multiline
+          />
+
+          {/* SALARY */}
+
+          <InfoRow
+            label="Цалинтай эсэх"
+            value={
+              detail.breakSalaryNm ||
+              (detail.breakSalary ===
+              "Y"
+                ? "Тийм"
+                : detail.breakSalary ===
+                  "N"
+                ? "Үгүй"
+                : "-")
+            }
+          />
+
+          {/* START DATE */}
+
+          <InfoRow
             label="Эхлэх огноо"
-            value={formatDate(
-              breakstartDate
-            )}
+            value={
+              formatDate(
+                detail.breakstartDate
+              )
+            }
           />
 
-          {/* ДУУСАХ ОГНОО */}
+          {/* END DATE */}
 
           <InfoRow
-            icon="calendar"
             label="Дуусах огноо"
-            value={formatDate(
-              breakfinishDate
-            )}
+            value={
+              formatDate(
+                detail.breakfinishDate
+              )
+            }
           />
 
-          {/* АЖЛЫН ӨДӨР */}
+          {/* WORK DAYS */}
 
           <InfoRow
-            icon="clock"
             label="Ажлын өдөр"
             value={
-              workDays === undefined
-                ? "-"
-                : `${workDays} өдөр`
+              String(
+                detail.workDays ??
+                  "-"
+              )
             }
           />
 
-          {/* ЦАЛИНТАЙ ЭСЭХ */}
+          {/* ============================= */}
+          {/* FILE */}
+          {/* ============================= */}
 
-          <InfoRow
-            icon="credit-card"
-            label="Цалинтай эсэх"
-            value={breakSalaryNm || "-"}
-          />
+          {hasFile && (
+            <View
+              style={
+                styles.fileSection
+              }
+            >
+              <Text
+                style={
+                  styles.sectionTitle
+                }
+              >
+                Хавсаргасан файл
+              </Text>
 
-          {/* БҮРТГЭСЭН ОГНОО */}
+              <Pressable
+                onPress={
+                  handleFile
+                }
+                style={({
+                  hovered,
+                  pressed,
+                }) => [
+                  styles.fileCard,
 
-          <InfoRow
-            icon="calendar"
-            label="Бүртгэсэн огноо"
-            value={formatDate(regDate)}
-          />
+                  (hovered ||
+                    pressed) &&
+                    styles.fileCardHover,
+                ]}
+              >
+                <View
+                  style={
+                    styles.fileIcon
+                  }
+                >
+                  <Feather
+                    name="file-text"
+                    size={21}
+                    color="#FFFFFF"
+                  />
+                </View>
 
-        </View>
+                <View
+                  style={
+                    styles.fileInfo
+                  }
+                >
+                  <Text
+                    style={
+                      styles.fileName
+                    }
+                    numberOfLines={
+                      1
+                    }
+                  >
+                    {fileName ||
+                      "Хавсаргасан файл"}
+                  </Text>
 
-        {/* ТАЙЛБАР */}
+                  <Text
+                    style={
+                      styles.fileId
+                    }
+                  >
+                    ID:{" "}
+                    {detail.fileId}
+                  </Text>
+                </View>
 
-        <View style={styles.card}>
+                <Feather
+                  name="download"
+                  size={21}
+                  color={BLUE}
+                />
+              </Pressable>
+            </View>
+          )}
 
-          <View style={styles.sectionHeader}>
+          {/* ============================= */}
+          {/* NOTE */}
+          {/* ============================= */}
 
-            <Feather
-              name="align-left"
-              size={19}
-              color={BLUE}
-            />
-
-            <Text style={styles.sectionTitle}>
-              Хүсэлтийн тайлбар
+          <View
+            style={
+              styles.noteSection
+            }
+          >
+            <Text
+              style={
+                styles.sectionTitle
+              }
+            >
+              Тайлбар
             </Text>
-
-          </View>
-
-          <View style={styles.noteBox}>
-
-            <Text style={styles.noteText}>
-              {breakNote ||
-                "Тайлбар оруулаагүй байна."}
-            </Text>
-
-          </View>
-
-        </View>
-
-        {/* ХҮСЭЛТИЙН ТӨЛӨВ */}
-
-        <View style={styles.card}>
-
-          <View style={styles.sectionHeader}>
-
-            <Feather
-              name="activity"
-              size={19}
-              color={BLUE}
-            />
-
-            <Text style={styles.sectionTitle}>
-              Хүсэлтийн төлөв
-            </Text>
-
-          </View>
-
-          <View style={styles.progressRow}>
 
             <View
-              style={[
-                styles.progressIcon,
-                {
-                  backgroundColor:
-                    statusStyle.backgroundColor,
-                },
-              ]}
+              style={
+                styles.noteBox
+              }
             >
-
-              <Feather
-                name="file-text"
-                size={18}
-                color={statusStyle.color}
-              />
-
-            </View>
-
-            <View style={styles.progressContent}>
-
-              <Text style={styles.progressTitle}>
-                {prgsStatusNm ||
-                  "Тодорхойгүй"}
+              <Text
+                style={
+                  styles.noteText
+                }
+              >
+                {detail.breakNote ||
+                  "Тайлбар байхгүй."}
               </Text>
-
-              <Text style={styles.progressDate}>
-                Бүртгэсэн:{" "}
-                {formatDate(regDate)}
-              </Text>
-
             </View>
-
           </View>
-
         </View>
 
-        {/* БУЦАХ ТОВЧ */}
+        {/* =============================== */}
+        {/* STATUS TIMELINE */}
+        {/* =============================== */}
 
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-
-          <Feather
-            name="arrow-left"
-            size={18}
-            color="#FFFFFF"
-          />
-
-          <Text style={styles.backButtonText}>
-            Миний хүсэлтүүд рүү буцах
-          </Text>
-
-        </TouchableOpacity>
-
+        <StatusTimeline
+          statusCd={
+            detail.prgsStatusCd
+          }
+          statusNm={
+            detail.prgsStatusNm
+          }
+          regDate={
+            detail.regDate
+          }
+          checkDate={
+            detail.checkDate
+          }
+          confirmDate={
+            detail.confirmDate
+          }
+        />
       </ScrollView>
 
+      {/* ================================= */}
+      {/* ACTION BUTTONS */}
+      {/* ХАДГАЛСАН ҮЕД Л */}
+      {/* ================================= */}
+
+      {isSaved && (
+        <View
+          style={
+            styles.actionContainer
+          }
+        >
+          {/* EDIT */}
+
+          <Pressable
+            style={({
+              hovered,
+              pressed,
+            }) => [
+              styles.editButton,
+
+              (hovered ||
+                pressed) &&
+                styles.editButtonHover,
+            ]}
+            onPress={
+              handleEdit
+            }
+            disabled={
+              sending
+            }
+          >
+            <Feather
+              name="edit-2"
+              size={20}
+              color={BLUE}
+            />
+
+            <Text
+              style={
+                styles.editButtonText
+              }
+            >
+              Засах
+            </Text>
+          </Pressable>
+
+          {/* SEND */}
+
+          <Pressable
+            style={({
+              hovered,
+              pressed,
+            }) => [
+              styles.sendButton,
+
+              (hovered ||
+                pressed ||
+                sending) &&
+                styles.sendButtonPressed,
+            ]}
+            onPress={
+              handleSend
+            }
+            disabled={
+              sending
+            }
+          >
+            {sending ? (
+              <ActivityIndicator
+                size="small"
+                color="#FFFFFF"
+              />
+            ) : (
+              <>
+                <Feather
+                  name="send"
+                  size={20}
+                  color="#FFFFFF"
+                />
+
+                <Text
+                  style={
+                    styles.sendButtonText
+                  }
+                >
+                  Илгээх
+                </Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+      )}
+
+      {/* ================================= */}
+      {/* BOTTOM NAV */}
+      {/* ================================= */}
+
+      <BottomNav
+        active="request"
+        userNm={userNm}
+        cstmNm={cstmNm}
+        userId={userId}
+        token={token}
+      />
     </SafeAreaView>
-
   );
-
 }
 
-// ======================================
-// STYLES
-// ======================================
+// =====================================================
+// INFO ROW
+// =====================================================
 
-const styles = StyleSheet.create({
+function InfoRow({
+  label,
+  value,
+  multiline = false,
+}: {
+  label: string;
+  value: string;
+  multiline?: boolean;
+}) {
+  return (
+    <View
+      style={[
+        styles.infoRow,
 
-  container: {
-    flex: 1,
-    backgroundColor: "#F5F7FB",
-  },
+        multiline &&
+          styles.infoRowMultiline,
+      ]}
+    >
+      <Text
+        style={
+          styles.infoLabel
+        }
+      >
+        {label}
+      </Text>
 
-  header: {
-    height: 60,
-    backgroundColor: "#FFFFFF",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E8EDF5",
-  },
+      <Text
+        style={[
+          styles.infoValue,
 
-  headerButton: {
-    width: 35,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+          multiline &&
+            styles.infoValueMultiline,
+        ]}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
 
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#26364D",
-  },
+// =====================================================
+// STATUS TIMELINE
+// =====================================================
 
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 45,
-    gap: 14,
-  },
+function StatusTimeline({
+  statusCd,
+  statusNm,
+  regDate,
+  checkDate,
+  confirmDate,
+}: {
+  statusCd?: string;
+  statusNm?: string;
+  regDate?: string;
+  checkDate?: string;
+  confirmDate?: string;
+}) {
+  const currentStep =
+    getCurrentStep(
+      statusCd,
+      statusNm
+    );
 
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 17,
-    borderWidth: 1,
-    borderColor: "#E7ECF3",
-  },
+  const steps = [
+    {
+      id: 1,
+      title: "Хадгалсан",
+      date: regDate || "",
+    },
 
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 10,
-  },
+    {
+      id: 2,
+      title: "Илгээсэн",
+      date: "",
+    },
 
-  titleContent: {
-    flex: 1,
-  },
+    {
+      id: 3,
+      title: "Шалгуулсан",
+      date:
+        checkDate || "",
+    },
 
-  smallLabel: {
-    fontSize: 10,
-    color: "#94A3B8",
-    fontWeight: "600",
-    marginBottom: 5,
-  },
+    {
+      id: 4,
+      title: "Шийдвэрлэсэн",
+      date:
+        confirmDate || "",
+    },
+  ];
 
-  requestNumber: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#26364D",
-  },
+  return (
+    <View
+      style={
+        styles.timelineCard
+      }
+    >
+      {/* HEADER */}
 
-  statusBadge: {
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-    borderRadius: 20,
-  },
+      <View
+        style={
+          styles.timelineHeader
+        }
+      >
+        <Text
+          style={
+            styles.timelineHeaderText
+          }
+        >
+          Шийдвэрийн мэдээлэл
+        </Text>
+      </View>
 
-  statusText: {
-    fontSize: 11,
-    fontWeight: "600",
-  },
+      {/* TIMELINE */}
 
-  divider: {
-    height: 1,
-    backgroundColor: "#EDF0F5",
-    marginVertical: 16,
-  },
+      <View
+        style={
+          styles.timelineContainer
+        }
+      >
+        {steps.map(
+          (
+            step,
+            index
+          ) => {
+            const completed =
+              step.id <=
+              currentStep;
 
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 19,
-    gap: 12,
-  },
+            const current =
+              step.id ===
+              currentStep;
 
-  iconBox: {
-    width: 39,
-    height: 39,
-    borderRadius: 10,
-    backgroundColor: "#EAF3FF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+            const lineActive =
+              step.id <
+              currentStep;
 
-  infoContent: {
-    flex: 1,
-    gap: 4,
-  },
+            return (
+              <View
+                key={
+                  step.id
+                }
+                style={
+                  styles.timelineStep
+                }
+              >
+                {/* LINE */}
 
-  infoLabel: {
-    fontSize: 12,
-    color: "#94A3B8",
-  },
+                {index <
+                  steps.length -
+                    1 && (
+                  <View
+                    style={[
+                      styles.timelineLine,
 
-  infoValue: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#26364D",
-  },
+                      lineActive
+                        ? styles.timelineLineActive
+                        : styles.timelineLineInactive,
+                    ]}
+                  />
+                )}
 
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 9,
-    marginBottom: 15,
-  },
+                {/* CIRCLE */}
 
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#26364D",
-  },
+                <View
+                  style={[
+                    styles.timelineCircle,
 
-  noteBox: {
-    backgroundColor: "#F8FAFD",
-    borderRadius: 9,
-    padding: 13,
-  },
+                    completed
+                      ? styles.timelineCircleActive
+                      : styles.timelineCircleInactive,
 
-  noteText: {
-    fontSize: 13,
-    lineHeight: 21,
-    color: "#475569",
-  },
+                    current &&
+                      styles.timelineCircleCurrent,
+                  ]}
+                >
+                  {completed && (
+                    <Feather
+                      name="check"
+                      size={13}
+                      color={
+                        current
+                          ? "#FFFFFF"
+                          : BLUE
+                      }
+                    />
+                  )}
+                </View>
 
-  progressRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
+                {/* TITLE */}
 
-  progressIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+                <Text
+                  style={[
+                    styles.timelineTitle,
 
-  progressContent: {
-    flex: 1,
-    gap: 5,
-  },
+                    completed &&
+                      styles.timelineTitleActive,
+                  ]}
+                  numberOfLines={
+                    1
+                  }
+                >
+                  {step.title}
+                </Text>
 
-  progressTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#26364D",
-  },
+                {/* DATE */}
 
-  progressDate: {
-    fontSize: 12,
-    color: "#94A3B8",
-  },
+                <Text
+                  style={
+                    styles.timelineDate
+                  }
+                >
+                  {step.date
+                    ? formatDate(
+                        step.date
+                      )
+                    : " "}
+                </Text>
+              </View>
+            );
+          }
+        )}
+      </View>
+    </View>
+  );
+}
 
-  backButton: {
-    backgroundColor: BLUE,
-    borderRadius: 10,
-    paddingVertical: 15,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 9,
-    marginTop: 5,
-  },
+// =====================================================
+// STYLE
+// =====================================================
 
-  backButtonText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "700",
-  },
+const styles =
+  StyleSheet.create({
+    // =================================================
+    // PAGE
+    // =================================================
 
-});
+    container: {
+      flex: 1,
+      backgroundColor:
+        "#F8FBFF",
+    },
+
+    scrollView: {
+      flex: 1,
+    },
+
+    scrollContent: {
+      paddingHorizontal: 14,
+      paddingBottom: 20,
+    },
+
+    // =================================================
+    // HEADER
+    // =================================================
+
+    header: {
+      height: 78,
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 14,
+    },
+
+    backButton: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      backgroundColor:
+        "#FFFFFF",
+      justifyContent:
+        "center",
+      alignItems: "center",
+      marginRight: 11,
+    },
+
+    headerTitle: {
+      flex: 1,
+      fontSize: 22,
+      fontWeight: "700",
+      color: "#1D2B43",
+    },
+
+    headerRight: {
+      width: 42,
+    },
+
+    // =================================================
+    // CARD
+    // =================================================
+
+    mainCard: {
+      backgroundColor:
+        "#FFFFFF",
+      borderRadius: 20,
+      paddingHorizontal: 15,
+      paddingTop: 8,
+      paddingBottom: 18,
+      borderWidth: 1,
+      borderColor: "#EDF2FA",
+    },
+
+    cardHeader: {
+      minHeight: 49,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "space-between",
+      paddingHorizontal: 12,
+      backgroundColor:
+        "#F0F6FF",
+      borderRadius: 13,
+      marginBottom: 5,
+    },
+
+    cardTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: "#15356A",
+    },
+
+    statusBadge: {
+      paddingHorizontal: 11,
+      paddingVertical: 6,
+      borderRadius: 20,
+    },
+
+    statusText: {
+      fontSize: 10,
+      fontWeight: "600",
+    },
+
+    // =================================================
+    // INFO ROW
+    // =================================================
+
+    infoRow: {
+      minHeight: 41,
+      flexDirection: "row",
+      alignItems: "center",
+      borderBottomWidth: 1,
+      borderBottomColor:
+        "#E0EAF7",
+      paddingHorizontal: 11,
+    },
+
+    infoRowMultiline: {
+      minHeight: 55,
+      alignItems:
+        "flex-start",
+      paddingTop: 12,
+      paddingBottom: 10,
+    },
+
+    infoLabel: {
+      width: "44%",
+      fontSize: 12,
+      color: "#7589AB",
+    },
+
+    infoValue: {
+      flex: 1,
+      fontSize: 12,
+      color: "#173D7A",
+    },
+
+    infoValueMultiline: {
+      lineHeight: 17,
+    },
+
+    // =================================================
+    // FILE
+    // =================================================
+
+    fileSection: {
+      marginTop: 24,
+      paddingHorizontal: 4,
+    },
+
+    sectionTitle: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: "#17365D",
+      marginBottom: 10,
+    },
+
+    fileCard: {
+      minHeight: 66,
+      borderRadius: 12,
+      backgroundColor:
+        "#F3F7FC",
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor:
+        "#EDF2F7",
+    },
+
+    fileCardHover: {
+      backgroundColor:
+        "#EDF6FF",
+      borderColor: BLUE,
+    },
+
+    fileIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: 8,
+      backgroundColor:
+        "#E8505B",
+      justifyContent:
+        "center",
+      alignItems: "center",
+      marginRight: 11,
+    },
+
+    fileInfo: {
+      flex: 1,
+      paddingRight: 10,
+    },
+
+    fileName: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: "#17365D",
+    },
+
+    fileId: {
+      marginTop: 4,
+      fontSize: 10,
+      color: "#8A9AB2",
+    },
+
+    // =================================================
+    // NOTE
+    // =================================================
+
+    noteSection: {
+      marginTop: 20,
+      paddingHorizontal: 4,
+    },
+
+    noteBox: {
+      minHeight: 110,
+      borderWidth: 1,
+      borderColor:
+        "#C9DDF8",
+      borderRadius: 12,
+      padding: 13,
+      backgroundColor:
+        "#FFFFFF",
+    },
+
+    noteText: {
+      fontSize: 12,
+      lineHeight: 18,
+      color: "#173D7A",
+    },
+
+    // =================================================
+    // TIMELINE
+    // =================================================
+
+    timelineCard: {
+      marginTop: 14,
+      backgroundColor:
+        "#FFFFFF",
+      borderRadius: 18,
+      paddingBottom: 20,
+      borderWidth: 1,
+      borderColor:
+        "#EDF2FA",
+    },
+
+    timelineHeader: {
+      minHeight: 47,
+      justifyContent:
+        "center",
+      paddingHorizontal: 14,
+      margin: 7,
+      backgroundColor:
+        "#F0F6FF",
+      borderRadius: 13,
+    },
+
+    timelineHeaderText: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: "#15356A",
+    },
+
+    timelineContainer: {
+      flexDirection: "row",
+      paddingHorizontal: 7,
+      paddingTop: 18,
+    },
+
+    timelineStep: {
+      flex: 1,
+      position: "relative",
+      alignItems: "center",
+    },
+
+    timelineCircle: {
+      width: 25,
+      height: 25,
+      borderRadius: 13,
+      borderWidth: 1.5,
+      justifyContent:
+        "center",
+      alignItems: "center",
+      backgroundColor:
+        "#FFFFFF",
+      zIndex: 5,
+    },
+
+    timelineCircleActive: {
+      borderColor: BLUE,
+    },
+
+    timelineCircleInactive: {
+      borderColor:
+        "#CBD5E1",
+    },
+
+    timelineCircleCurrent: {
+      backgroundColor: BLUE,
+      borderColor:
+        "#9ACBFA",
+      borderWidth: 3,
+    },
+
+    timelineLine: {
+      position: "absolute",
+      top: 12,
+      left: "62%",
+      width: "76%",
+      height: 2,
+      zIndex: 1,
+    },
+
+    timelineLineActive: {
+      backgroundColor: BLUE,
+    },
+
+    timelineLineInactive: {
+      backgroundColor:
+        "#DCE7F6",
+    },
+
+    timelineTitle: {
+      marginTop: 7,
+      fontSize: 9,
+      color: "#8492A6",
+      textAlign: "center",
+    },
+
+    timelineTitleActive: {
+      color: "#173D7A",
+      fontWeight: "600",
+    },
+
+    timelineDate: {
+      marginTop: 3,
+      minHeight: 11,
+      fontSize: 8,
+      color: "#8A9AB2",
+      textAlign: "center",
+    },
+
+    // =================================================
+    // ACTIONS
+    // =================================================
+
+    actionContainer: {
+      flexDirection: "row",
+      gap: 12,
+      paddingHorizontal: 16,
+      paddingTop: 10,
+      paddingBottom: 9,
+      backgroundColor:
+        "#FFFFFF",
+      borderTopWidth: 1,
+      borderTopColor:
+        "#EDF2F7",
+    },
+
+    editButton: {
+      flex: 1,
+      height: 50,
+      borderRadius: 13,
+      borderWidth: 1.5,
+      borderColor: BLUE,
+      backgroundColor:
+        "#FFFFFF",
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "center",
+      gap: 9,
+    },
+
+    editButtonHover: {
+      backgroundColor:
+        "#F0F7FF",
+    },
+
+    editButtonText: {
+      color: BLUE,
+      fontSize: 14,
+      fontWeight: "700",
+    },
+
+    sendButton: {
+      flex: 1,
+      height: 50,
+      borderRadius: 13,
+      backgroundColor: BLUE,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "center",
+      gap: 9,
+    },
+
+    sendButtonPressed: {
+      opacity: 0.75,
+    },
+
+    sendButtonText: {
+      color: "#FFFFFF",
+      fontSize: 14,
+      fontWeight: "700",
+    },
+
+    // =================================================
+    // LOADING / ERROR
+    // =================================================
+
+    center: {
+      flex: 1,
+      justifyContent:
+        "center",
+      alignItems: "center",
+      paddingHorizontal: 25,
+      gap: 14,
+    },
+
+    loadingText: {
+      fontSize: 13,
+      color: "#64748B",
+    },
+
+    errorTitle: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: "#334155",
+      textAlign: "center",
+    },
+
+    retryButton: {
+      marginTop: 5,
+      paddingHorizontal: 20,
+      height: 43,
+      borderRadius: 11,
+      backgroundColor: BLUE,
+      justifyContent:
+        "center",
+      alignItems: "center",
+    },
+
+    retryText: {
+      color: "#FFFFFF",
+      fontSize: 13,
+      fontWeight: "700",
+    },
+
+    backTextButton: {
+      paddingHorizontal: 20,
+      height: 40,
+      justifyContent:
+        "center",
+      alignItems: "center",
+    },
+
+    backText: {
+      color: BLUE,
+      fontSize: 13,
+      fontWeight: "600",
+    },
+  });
