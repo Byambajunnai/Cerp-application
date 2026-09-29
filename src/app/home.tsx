@@ -29,7 +29,13 @@ type NewsItem = {
   newsFileId: number;
 };
 
+const formatApiDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
 
+  return `${year}${month}${day}`;
+};
 /* ============================================================
    HOME
 ============================================================ */
@@ -57,7 +63,23 @@ export default function HomeScreen() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [newsLoading, setNewsLoading] = useState(true);
 
+type TodayAttendance = {
+  dateNo: string;
+  date: string;
+  dayOfWeekNm: string;
+  isWeekend: boolean;
+  breakTypeNm?: string | null;
+  comeIn?: string | null;
+  goneOn?: string | null;
+  iluu?: string | null;
+  hotsrolt?: string | null;
+};
 
+const [todayAttendance, setTodayAttendance] =
+  useState<TodayAttendance | null>(null);
+
+const [attendanceLoading, setAttendanceLoading] =
+  useState(true);
   /* ========================================================
      NEWS API
   ======================================================== */
@@ -128,7 +150,64 @@ export default function HomeScreen() {
 
   }, [token]);
 
+useEffect(() => {
+  const loadTodayAttendance = async () => {
+    if (!token) {
+      setAttendanceLoading(false);
+      return;
+    }
 
+    try {
+      setAttendanceLoading(true);
+
+      const today = formatApiDate(new Date());
+
+      const response = await fetch(
+        `${API_URL}/api/mobile/timtime?page=1&pageSize=1&startDate=${today}&endDate=${today}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      const text = await response.text();
+
+      let data: any = {};
+
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        console.error('Attendance JSON parse error');
+        setTodayAttendance(null);
+        return;
+      }
+
+      if (
+        response.ok &&
+        Array.isArray(data.items) &&
+        data.items.length > 0
+      ) {
+        setTodayAttendance(data.items[0]);
+      } else {
+        setTodayAttendance(null);
+      }
+    } catch (error) {
+      console.error(
+        'Home Attendance API error:',
+        error
+      );
+
+      setTodayAttendance(null);
+    } finally {
+      setAttendanceLoading(false);
+    }
+  };
+
+  loadTodayAttendance();
+}, [token]);
   /* ========================================================
      COMMON PARAMS
   ======================================================== */
@@ -178,7 +257,7 @@ export default function HomeScreen() {
 
   const goAttendance = () => {
     router.push({
-      pathname: '/attendance',
+      pathname: '/time',
       params: commonParams,
     });
   };
@@ -261,72 +340,77 @@ export default function HomeScreen() {
 
 
         {/* ==================================================
-            ИРЦ
-        ================================================== */}
+    ӨНӨӨДРИЙН ЦАГ БҮРТГЭЛ
+================================================== */}
 
-        <TouchableOpacity
-          style={styles.attendanceCard}
-          activeOpacity={0.85}
-          onPress={goAttendance}
-        >
+<TouchableOpacity
+  style={styles.attendanceCard}
+  activeOpacity={0.85}
+  onPress={goAttendance}
+>
+  <View style={styles.clockCircle}>
+    {attendanceLoading ? (
+      <ActivityIndicator
+        size="small"
+        color="#FFFFFF"
+      />
+    ) : (
+      <Feather
+        name="clock"
+        size={27}
+        color="#FFFFFF"
+      />
+    )}
+  </View>
 
-          <View style={styles.clockCircle}>
+  <View style={styles.dateBlock}>
+    <Text style={styles.date}>
+      {todayAttendance?.dateNo
+        ? todayAttendance.dateNo.replaceAll('/', '.')
+        : new Date().toLocaleDateString('en-CA').replaceAll('-', '.')}
+    </Text>
 
-            <Feather
-              name="clock"
-              size={27}
-              color="#FFFFFF"
-            />
+    <Text style={styles.day}>
+      {todayAttendance?.dayOfWeekNm || '—'}
+    </Text>
 
-          </View>
+    {!!todayAttendance?.breakTypeNm && (
+      <Text style={styles.attendanceType}>
+        {todayAttendance.breakTypeNm}
+      </Text>
+    )}
+  </View>
 
+  <View style={styles.timeDivider} />
 
-          <View style={styles.dateBlock}>
+  <View style={styles.times}>
 
-            <Text style={styles.date}>
-              2026.09.16
-            </Text>
+    <View style={styles.timeRow}>
+      <Text style={styles.timeLabel}>
+        Ирсэн цаг
+      </Text>
 
-            <Text style={styles.day}>
-              Мягмар
-            </Text>
+      <Text style={styles.time}>
+        {attendanceLoading
+          ? '...'
+          : todayAttendance?.comeIn || '—'}
+      </Text>
+    </View>
 
-          </View>
+    <View style={styles.timeRow}>
+      <Text style={styles.timeLabel}>
+        Гарсан цаг
+      </Text>
 
+      <Text style={styles.time}>
+        {attendanceLoading
+          ? '...'
+          : todayAttendance?.goneOn || '—'}
+      </Text>
+    </View>
 
-          <View style={styles.timeDivider} />
-
-
-          <View style={styles.times}>
-
-            <View style={styles.timeRow}>
-
-              <Text style={styles.timeLabel}>
-                Ирсэн цаг
-              </Text>
-
-              <Text style={styles.time}>
-                09:00
-              </Text>
-
-            </View>
-
-
-            <View style={styles.timeRow}>
-
-              <Text style={styles.timeLabel}>
-                Гарсан цаг
-              </Text>
-
-              <Text style={styles.time}>
-                18:27
-              </Text>
-
-            </View>
-
-          </View>
-
-        </TouchableOpacity>
+  </View>
+</TouchableOpacity>
 
 
         {/* ==================================================
@@ -1300,5 +1384,11 @@ const styles = StyleSheet.create({
 
     color: '#98A2B3',
   },
+
+  attendanceType: {
+  fontSize: 9,
+  color: '#428CE5',
+  marginTop: 4,
+},
 
 });

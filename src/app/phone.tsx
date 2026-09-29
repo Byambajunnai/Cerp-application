@@ -3,16 +3,16 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Linking,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Linking,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import BottomNav from '../components/BottomNav';
@@ -333,33 +333,83 @@ export default function PhoneScreen() {
   };
 
 
-  /* ============================================================
-     PHONE
-  ============================================================ */
+ /* ============================================================
+   PHONE ACTION
+============================================================ */
 
-  const callPhone = async (
-    phone?: string
-  ) => {
+const openPhoneOptions = (phone?: string) => {
+  if (!phone) return;
 
-    if (!phone) return;
+  const cleanPhone = phone.replace(/[^\d+]/g, '');
 
+  Alert.alert(
+    phone,
+    'Холбогдох хэлбэрээ сонгоно уу',
+    [
+      {
+        text: 'Утсаар залгах',
+        onPress: async () => {
+          try {
+            await Linking.openURL(`tel:${cleanPhone}`);
+          } catch {
+            Alert.alert(
+              'Алдаа',
+              'Дуудлага хийх боломжгүй байна.'
+            );
+          }
+        },
+      },
 
-    try {
+      {
+        text: 'Viber',
+        onPress: async () => {
+          try {
+            /*
+              Монголын 8 оронтой дугаар байвал
+              +976 автоматаар нэмнэ.
+            */
 
-      await Linking.openURL(
-        `tel:${phone}`
-      );
+            let viberPhone = cleanPhone;
 
-    } catch {
+            if (
+              !viberPhone.startsWith('+') &&
+              viberPhone.length === 8
+            ) {
+              viberPhone = `+976${viberPhone}`;
+            }
 
-      Alert.alert(
-        'Алдаа',
-        'Дуудлага хийх боломжгүй байна.'
-      );
+            const viberUrl =
+              `viber://chat?number=${encodeURIComponent(
+                viberPhone
+              )}`;
 
-    }
+            const supported =
+              await Linking.canOpenURL(viberUrl);
 
-  };
+            if (supported) {
+              await Linking.openURL(viberUrl);
+            } else {
+              Alert.alert(
+                'Viber олдсонгүй',
+                'Төхөөрөмж дээр Viber суулгагдаагүй байна.'
+              );
+            }
+          } catch {
+            Alert.alert(
+              'Алдаа',
+              'Viber нээх боломжгүй байна.'
+            );
+          }
+        },
+      },
+
+      {
+        text: 'Цуцлах',
+        style: 'cancel',
+      },
+    ]
+  );
+};
 
 
   /* ============================================================
@@ -544,11 +594,11 @@ export default function PhoneScreen() {
 
             <TouchableOpacity
               style={styles.contactItem}
-              onPress={() =>
-                callPhone(
-                  item.cellPhoneNo
-                )
-              }
+             onPress={() =>
+  openPhoneOptions(
+    item.cellPhoneNo
+  )
+}
             >
 
               <Feather
@@ -573,11 +623,23 @@ export default function PhoneScreen() {
 
             <TouchableOpacity
               style={styles.contactItem}
-              onPress={() =>
-                callPhone(
-                  item.telNo
-                )
-              }
+             onPress={async () => {
+  if (!item.telNo) return;
+
+  try {
+    const phone =
+      item.telNo.replace(/[^\d+]/g, '');
+
+    await Linking.openURL(
+      `tel:${phone}`
+    );
+  } catch {
+    Alert.alert(
+      'Алдаа',
+      'Дуудлага хийх боломжгүй байна.'
+    );
+  }
+}}
             >
 
               <Feather

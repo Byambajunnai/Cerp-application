@@ -74,7 +74,7 @@ export default function BottomNav({
 
   const goAttendance = () => {
     router.push({
-      pathname: '/attendance',
+      pathname: '/time',
       params: commonParams,
     });
   };
