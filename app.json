@@ -8,9 +8,20 @@
     "scheme": "cerpmobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location"
+        ],
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Таны байршлыг ажлын цагийн бүртгэлд ашиглана, апп хаалттай үед ч орно.",
+        "NSLocationWhenInUseUsageDescription": "Таны байршлыг ажлын цагийн бүртгэлд ашиглана."
+      }
     },
     "android": {
+      "package": "mn.gaali.cerpmobile",
+      "permissions": [
+        "android.permission.RECEIVE_BOOT_COMPLETED"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -33,11 +44,27 @@
           "imageWidth": 76
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Таны байршлыг ажлын цагийн бүртгэлд ашиглана, апп хаалттай үед ч орно.",
+          "locationWhenInUsePermission": "Таны байршлыг ажлын цагийн бүртгэлд ашиглана.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "11a5429b-335d-4035-b713-30639321f8ca"
+      }
     }
   }
 }

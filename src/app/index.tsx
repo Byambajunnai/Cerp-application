@@ -2,6 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { API_URL } from '../config/api';
+import { sendLocationPing } from '../services/location';
 
 import {
   ActivityIndicator,
@@ -14,7 +15,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 export default function LoginScreen() {
@@ -73,6 +74,9 @@ export default function LoginScreen() {
     : [];
 
   console.log('ROLES:', roles);
+
+  console.log('📍 Байршил илгээж эхэллээ...');
+  sendLocationPing(data.token);
 
   router.replace({
     pathname: '/home',

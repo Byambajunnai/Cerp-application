@@ -1,6 +1,5 @@
-import { Platform } from 'react-native';
+// Proxy-server ажиллаж буй компьютерийн дотоод IP
+// (тэр компьютер дээр cmd → ipconfig → "IPv4 Address")
+const SERVER_IP = '192.168.119.21';
 
-export const API_URL =
-  Platform.OS === 'android'
-    ? 'http://10.0.2.2:3001'
-    : 'http://localhost:3001';
+export const API_URL = `http://${SERVER_IP}:3001`;

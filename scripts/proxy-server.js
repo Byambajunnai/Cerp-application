@@ -35,6 +35,6 @@ app.use(
   })
 );
 
-app.listen(3001, () => {
+app.listen(3001, '0.0.0.0', () => {
   console.log('CERP Proxy running: http://localhost:3001');
 });

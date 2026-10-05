@@ -1,21 +1,28 @@
 import { Feather } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
-    ActivityIndicator,
-    Alert,
-    RefreshControl,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import BottomNav from '../components/BottomNav';
 import { API_URL } from '../config/api';
+import {
+  AttendanceType,
+  checkAttendance,
+  checkZone,
+  ZONE_MESSAGES,
+  ZoneStatus,
+} from '../services/location';
 
 
 /* =====================================================
@@ -108,6 +115,18 @@ const formatDisplayDate = (date: Date) => {
 };
 
 
+/*
+  "2026/10/02", "2026-10-02T00:00:00", "20261002"
+  гэх мэт ямар ч форматыг "20261002" болгоно.
+*/
+const toDateKey = (
+  value?: string | null
+) =>
+  (value || '')
+    .replace(/\D/g, '')
+    .slice(0, 8);
+
+
 /* =====================================================
    WEEK RANGE
 ===================================================== */
@@ -198,8 +217,48 @@ export default function AttendanceScreen() {
     useState(false);
 
 
+  // Аль товч дээр хүсэлт явж байгааг заана
+  const [checking, setChecking] =
+    useState<AttendanceType | null>(null);
+
+
+  // Ажлын бүс дотор эсэх ('checking' = шалгаж байна)
+  const [zoneStatus, setZoneStatus] =
+    useState<ZoneStatus | 'checking'>('checking');
+
+
   const weekRange =
     getWeekRange(selectedDate);
+
+
+  /* ===================================================
+     TODAY
+  =================================================== */
+
+  const today = new Date();
+
+  const todayKey =
+    formatApiDate(today);
+
+
+  // Сонгосон 7 хоногт өнөөдөр багтаж байгаа эсэх
+  const isCurrentWeek =
+    todayKey >= formatApiDate(weekRange.start) &&
+    todayKey <= formatApiDate(weekRange.end);
+
+
+  const todayItem =
+    isCurrentWeek
+      ? items.find(
+          item =>
+            toDateKey(item.date) === todayKey ||
+            toDateKey(item.dateNo) === todayKey
+        )
+      : undefined;
+
+
+  const alreadyCameIn =
+    Boolean(todayItem?.comeIn);
 
 
   /* ===================================================
@@ -382,6 +441,192 @@ export default function AttendanceScreen() {
     setRefreshing(true);
 
     loadAttendance();
+
+  };
+
+
+  /* ===================================================
+     АЖЛЫН БҮС ШАЛГАХ
+  =================================================== */
+
+  const refreshZone =
+    useCallback(async (): Promise<ZoneStatus> => {
+
+      if (!token) {
+
+        setZoneStatus('error');
+
+        return 'error';
+      }
+
+
+      const status =
+        await checkZone(token);
+
+
+      setZoneStatus(status);
+
+      return status;
+
+    }, [token]);
+
+
+  /*
+    Дэлгэц нээгдэх бүрт шалгаад,
+    нээлттэй байх хугацаанд 1 минут тутам шинэчилнэ.
+    Дэлгэцээс гарахад зогсоно.
+  */
+
+  useFocusEffect(
+    useCallback(() => {
+
+      refreshZone();
+
+
+      const timer =
+        setInterval(
+          refreshZone,
+          60 * 1000
+        );
+
+
+      return () =>
+        clearInterval(timer);
+
+    }, [refreshZone])
+  );
+
+
+  const isInside =
+    zoneStatus === 'inside';
+
+
+  const getZoneText = () => {
+
+    if (zoneStatus === 'checking') {
+      return 'Байршил шалгаж байна...';
+    }
+
+    if (zoneStatus === 'inside') {
+      return 'Та ажлын бүсэд байна';
+    }
+
+    return ZONE_MESSAGES[zoneStatus].title;
+
+  };
+
+
+  /* ===================================================
+     ИРЛЭЭ / ЯВЛАА
+  =================================================== */
+
+  const handleCheck = async (
+    type: AttendanceType
+  ) => {
+
+    if (!token) {
+
+      Alert.alert(
+        'Анхааруулга',
+        'Нэвтрэх мэдээлэл олдсонгүй.'
+      );
+
+      return;
+    }
+
+
+    if (checking) {
+      return;
+    }
+
+
+    setChecking(type);
+
+
+    try {
+
+      /*
+        Сүүлийн шалгалтаар бүсэд байгаагүй бол
+        (дөнгөж ирсэн байж магадгүй) дахин шалгана.
+      */
+
+      let zone: ZoneStatus | 'checking' =
+        zoneStatus;
+
+
+      if (zone !== 'inside') {
+
+        zone =
+          await refreshZone();
+
+      }
+
+
+      if (zone !== 'inside') {
+
+        const info =
+          ZONE_MESSAGES[
+            zone as Exclude<ZoneStatus, 'inside'>
+          ];
+
+
+        Alert.alert(
+          info.title,
+          info.message
+        );
+
+        return;
+      }
+
+
+      const result =
+        await checkAttendance(
+          token,
+          type
+        );
+
+
+      if (!result.ok) {
+
+        Alert.alert(
+          'Бүртгэгдсэнгүй',
+          result.message
+        );
+
+        return;
+      }
+
+
+      Alert.alert(
+        type === 'IN'
+          ? 'Ирсэн цаг бүртгэгдлээ'
+          : 'Явсан цаг бүртгэгдлээ',
+        result.time
+          ? `Бүртгэгдсэн цаг: ${result.time}`
+          : result.message
+      );
+
+
+      // Өнөөдрийн мөрийг шинэчилж харуулах
+      if (isCurrentWeek) {
+
+        setRefreshing(true);
+
+        loadAttendance();
+
+      } else {
+
+        // Өөр 7 хоног харж байсан бол
+        // өнөөдөр рүү буцаана (useEffect дахин татна)
+        setSelectedDate(new Date());
+
+      }
+
+    } finally {
+
+      setChecking(null);
+
+    }
 
   };
 
@@ -1272,6 +1517,163 @@ export default function AttendanceScreen() {
 
           )}
 
+          {/* ================= ИРЛЭЭ / ЯВЛАА (жагсаалтын доор) ================= */}
+
+          {isCurrentWeek && (
+
+            <View
+              style={styles.checkSection}
+            >
+
+              {/* БҮСИЙН ТӨЛӨВ */}
+
+              <View
+                style={styles.zoneRow}
+              >
+
+                {zoneStatus === 'checking' ? (
+
+                  <ActivityIndicator
+                    size="small"
+                    color="#8A96A8"
+                  />
+
+                ) : (
+
+                  <View
+                    style={[
+                      styles.zoneDot,
+
+                      {
+                        backgroundColor:
+                          isInside
+                            ? '#55B77A'
+                            : '#E96868',
+                      },
+                    ]}
+                  />
+
+                )}
+
+
+                <Text
+                  style={[
+                    styles.zoneText,
+
+                    isInside &&
+                      styles.zoneTextInside,
+                  ]}
+                >
+                  {getZoneText()}
+                </Text>
+
+              </View>
+
+
+              <View
+                style={styles.checkButtons}
+              >
+
+                {/* ИРЛЭЭ */}
+
+                <TouchableOpacity
+                  style={[
+                    styles.checkButton,
+
+                    isInside && !alreadyCameIn
+                      ? styles.checkInButton
+                      : styles.checkButtonInactive,
+                  ]}
+                  activeOpacity={0.8}
+                  disabled={
+                    alreadyCameIn ||
+                    checking !== null
+                  }
+                  onPress={() =>
+                    handleCheck('IN')
+                  }
+                >
+
+                  {checking === 'IN' ? (
+
+                    <ActivityIndicator
+                      size="small"
+                      color="#FFFFFF"
+                    />
+
+                  ) : (
+
+                    <>
+                      <Feather
+                        name="log-in"
+                        size={16}
+                        color="#FFFFFF"
+                      />
+
+                      <Text
+                        style={styles.checkButtonText}
+                      >
+                        {alreadyCameIn
+                          ? `Ирсэн ${todayItem?.comeIn}`
+                          : 'Ирлээ'}
+                      </Text>
+                    </>
+
+                  )}
+
+                </TouchableOpacity>
+
+
+                {/* ЯВЛАА */}
+
+                <TouchableOpacity
+                  style={[
+                    styles.checkButton,
+
+                    isInside
+                      ? styles.checkOutButton
+                      : styles.checkButtonInactive,
+                  ]}
+                  activeOpacity={0.8}
+                  disabled={checking !== null}
+                  onPress={() =>
+                    handleCheck('OUT')
+                  }
+                >
+
+                  {checking === 'OUT' ? (
+
+                    <ActivityIndicator
+                      size="small"
+                      color="#FFFFFF"
+                    />
+
+                  ) : (
+
+                    <>
+                      <Feather
+                        name="log-out"
+                        size={16}
+                        color="#FFFFFF"
+                      />
+
+                      <Text
+                        style={styles.checkButtonText}
+                      >
+                        Явлаа
+                      </Text>
+                    </>
+
+                  )}
+
+                </TouchableOpacity>
+
+              </View>
+
+            </View>
+
+          )}
+
         </ScrollView>
 
       )}
@@ -1342,6 +1744,107 @@ const styles =
       fontWeight: '600',
 
       color: '#1F2B3D',
+    },
+
+
+    /* ================= ИРЛЭЭ / ЯВЛАА ================= */
+
+    checkSection: {
+      marginTop: 8,
+
+      borderRadius: 13,
+
+      backgroundColor: '#FFFFFF',
+
+      borderWidth: 1,
+      borderColor: '#E9EDF3',
+
+      padding: 14,
+    },
+
+
+    zoneRow: {
+      flexDirection: 'row',
+
+      alignItems: 'center',
+
+      justifyContent: 'center',
+
+      gap: 7,
+    },
+
+
+    zoneDot: {
+      width: 8,
+      height: 8,
+
+      borderRadius: 4,
+    },
+
+
+    zoneText: {
+      fontSize: 12,
+
+      color: '#7D8A9C',
+    },
+
+
+    zoneTextInside: {
+      color: '#3E9963',
+
+      fontWeight: '600',
+    },
+
+
+    checkButtons: {
+      flexDirection: 'row',
+
+      marginTop: 12,
+
+      gap: 10,
+    },
+
+
+    checkButton: {
+      flex: 1,
+
+      height: 46,
+
+      borderRadius: 11,
+
+      flexDirection: 'row',
+
+      alignItems: 'center',
+
+      justifyContent: 'center',
+
+      gap: 6,
+    },
+
+
+    checkInButton: {
+      backgroundColor: '#428CE5',
+    },
+
+
+    checkOutButton: {
+      backgroundColor: '#55B77A',
+    },
+
+
+    // Бүсээс гадна эсвэл аль хэдийн ирсэн: саарал,
+    // гэхдээ "Явлаа" дарагдаж alert харуулна
+    checkButtonInactive: {
+      backgroundColor: '#B8C2CF',
+    },
+
+
+    checkButtonText: {
+      fontSize: 14,
+
+      fontWeight: '600',
+
+      color: '#FFFFFF',
     },
 
 

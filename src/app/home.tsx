@@ -1,6 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
+import { setBackgroundLocationToken, startBackgroundLocationTracking } from '../services/backgroundLocation';
 
 import {
   ActivityIndicator,
@@ -14,6 +15,7 @@ import {
 
 import BottomNav from '../components/BottomNav';
 import { API_URL } from '../config/api';
+import { useLocationPing } from '../hooks/useLocationPing';
 
 /* ============================================================
    NEWS TYPE
@@ -55,6 +57,25 @@ export default function HomeScreen() {
   token?: string;
   roles?: string;
 }>();
+
+  // ⚠️ ШИНЭЭР НЭМЭГДСЭН: нэвтэрсний дараа 5 минут тутам, мөн апп
+  // foreground орох бүрд автоматаар байршил илгээдэг болгоно.
+  useLocationPing(token ?? null);
+
+  // ⚠️ ШИНЭЭР НЭМЭГДСЭН: production build (Development/EAS Build) дээр
+  // апп background руу шилжсэн ч байршил илгээгдэж байх боломжийг нээнэ.
+  // Expo Go дээр энэ чимээгүй амжилтгүй болно (хэвийн зүйл, алдаа биш).
+  // ⚠️ ОНОШЛОГООНЫ ЗОРИЛГООР console.log/catch НЭМЭГДСЭН — асуудал
+  // олдсоны дараа эдгээрийг хасаж болно.
+  useEffect(() => {
+    console.log('📍🔒 Background useEffect ажиллаж байна, token:', token ? 'байна' : 'алга');
+    if (token) {
+      setBackgroundLocationToken(token);
+      startBackgroundLocationTracking()
+        .then((result) => console.log('📍🔒 startBackgroundLocationTracking үр дүн:', result))
+        .catch((err) => console.error('📍🔒 startBackgroundLocationTracking алдаа:', err));
+    }
+  }, [token]);
 
   /* ========================================================
      NEWS STATE
