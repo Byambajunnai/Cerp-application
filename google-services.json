@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "202860837805",
+    "project_id": "saihnaa-d6ac9",
+    "storage_bucket": "saihnaa-d6ac9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:202860837805:android:cdad53ddf638cb5856ff24",
+        "android_client_info": {
+          "package_name": "mn.gaali.cerpmobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDDkTG8ZwvIKsvwZRBLByCJfrDo8HJZe50"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

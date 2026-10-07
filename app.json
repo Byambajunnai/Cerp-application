@@ -19,6 +19,7 @@
     },
     "android": {
       "package": "mn.gaali.cerpmobile",
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.RECEIVE_BOOT_COMPLETED"
       ],
@@ -54,7 +55,9 @@
           "isAndroidForegroundServiceEnabled": true
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-notifications",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,
