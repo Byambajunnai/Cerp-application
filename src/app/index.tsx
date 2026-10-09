@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { API_URL } from '../config/api';
 import { sendLocationPing } from '../services/location';
+import { registerForPush } from '../services/push';
 
 import {
   ActivityIndicator,
@@ -37,10 +38,8 @@ export default function LoginScreen() {
     try {
       setLoading(true);
 
-      
-
-     const response = await fetch(
-       `${API_URL}/api/mobile/login`,
+      const response = await fetch(
+        `${API_URL}/api/mobile/login`,
         {
           method: 'POST',
           headers: {
@@ -66,32 +65,35 @@ export default function LoginScreen() {
         throw new Error('Сервер JSON бус хариу буцаалаа.');
       }
 
-    if (response.ok) {
-  console.log('Login амжилттай');
+      if (response.ok) {
+        console.log('Login амжилттай');
 
-  const roles = Array.isArray(data.roles)
-    ? data.roles
-    : [];
+        const roles = Array.isArray(data.roles)
+          ? data.roles
+          : [];
 
-  console.log('ROLES:', roles);
+        console.log('ROLES:', roles);
 
-  console.log('📍 Байршил илгээж эхэллээ...');
-  sendLocationPing(data.token);
+        console.log('📍 Байршил илгээж эхэллээ...');
+        sendLocationPing(data.token);
 
-  router.replace({
-    pathname: '/home',
-    params: {
-      userNm: data.userNm || '',
-      cstmNm: data.cstmNm || '',
-      userId: data.userId || '',
-      cstmCd: data.cstmCd || '',
-      token: data.token || '',
+        // 🔔 Push token бүртгэнэ (дуудлага шилжүүлэх үед мэдэгдэл хүлээн авахын тулд)
+        registerForPush(data.token);
 
-      // Эрхүүдийг route-аар дамжуулна
-      roles: JSON.stringify(roles),
-    },
-  });
-} else {
+        router.replace({
+          pathname: '/home',
+          params: {
+            userNm: data.userNm || '',
+            cstmNm: data.cstmNm || '',
+            userId: data.userId || '',
+            cstmCd: data.cstmCd || '',
+            token: data.token || '',
+
+            // Эрхүүдийг route-аар дамжуулна
+            roles: JSON.stringify(roles),
+          },
+        });
+      } else {
         Alert.alert(
           'Нэвтрэх боломжгүй',
           data.message ||

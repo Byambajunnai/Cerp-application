@@ -50,6 +50,28 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
   await postLocation(token, pos); // хариуг (inside true/false) логлоно
 });
 
+/* ============================================================
+   АЮУЛГҮЙ ЗОГСООХ
+   prebuild / дахин суулгасны дараа систем "ажиллаж байна" гэж
+   хэлдэг ч TaskManager task-ийг танихгүй тохиолдол гардаг.
+   Тэр үед stopLocationUpdatesAsync алдаа шиддэг тул:
+   1) task бүртгэлтэй эсэхийг шалгана
+   2) алдаа гарвал залгиж, үргэлжлүүлнэ
+============================================================ */
+
+async function safeStopLocationUpdates(): Promise<void> {
+  try {
+    const registered = await TaskManager.isTaskRegisteredAsync(LOCATION_TASK_NAME);
+    const started = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
+
+    if (registered && started) {
+      await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
+    }
+  } catch (e) {
+    console.warn('📍🔒 Хуучин task зогсооход алдаа (алгасав):', e);
+  }
+}
+
 export async function startBackgroundLocationTracking(): Promise<boolean> {
   const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
   if (fgStatus !== 'granted') {
@@ -64,9 +86,7 @@ export async function startBackgroundLocationTracking(): Promise<boolean> {
   }
 
   // Хуучин тохиргоотой task ажиллаж байвал зогсоогоод шинээр эхлүүлнэ
-  if (await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME)) {
-    await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
-  }
+  await safeStopLocationUpdates();
 
   await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
     accuracy: Location.Accuracy.High,
@@ -100,9 +120,7 @@ export async function startBackgroundLocationTracking(): Promise<boolean> {
 }
 
 export async function stopBackgroundLocationTracking(): Promise<void> {
-  if (await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME)) {
-    await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
-    console.log('📍🔒 Background location tracking зогслоо');
-  }
+  await safeStopLocationUpdates();
+  console.log('📍🔒 Background location tracking зогслоо');
   setBackgroundLocationToken(null);
 }

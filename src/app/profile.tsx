@@ -1,7 +1,9 @@
 import { Feather } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 
 import {
+  ActivityIndicator,
   Alert,
   Platform,
   SafeAreaView,
@@ -12,6 +14,7 @@ import {
 } from 'react-native';
 
 import BottomNav from '../components/BottomNav';
+import { unregisterCurrentDevice } from '../services/push';
 
 
 export default function ProfileScreen() {
@@ -28,13 +31,20 @@ export default function ProfileScreen() {
     token?: string;
   }>();
 
+  const [loggingOut, setLoggingOut] = useState(false);
+
 
   /* ============================================================
      LOGOUT
   ============================================================ */
 
   const handleLogout = () => {
-  const logout = () => {
+  const logout = async () => {
+    setLoggingOut(true);
+
+    // 🔔 Энэ утас руу мэдэгдэл ирэхээ болино (серверээс token устгана)
+    await unregisterCurrentDevice(token);
+
     // Login page рүү буцаана.
     // Ингэснээр одоогийн user/token params дараагийн route руу
     // дамжихаа болино.
@@ -333,23 +343,36 @@ export default function ProfileScreen() {
         ==================================================== */}
 
         <TouchableOpacity
-          style={styles.logoutButton}
+          style={[
+            styles.logoutButton,
+            loggingOut && styles.logoutButtonDisabled,
+          ]}
           activeOpacity={0.8}
           onPress={handleLogout}
+          disabled={loggingOut}
         >
 
-          <Feather
-            name="log-out"
-            size={21}
-            color="#E5484D"
-          />
+          {loggingOut ? (
+            <ActivityIndicator
+              size="small"
+              color="#E5484D"
+            />
+          ) : (
+            <>
+              <Feather
+                name="log-out"
+                size={21}
+                color="#E5484D"
+              />
 
 
-          <Text
-            style={styles.logoutText}
-          >
-            Системээс гарах
-          </Text>
+              <Text
+                style={styles.logoutText}
+              >
+                Системээс гарах
+              </Text>
+            </>
+          )}
 
         </TouchableOpacity>
 
@@ -596,6 +619,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
 
     marginTop: 30,
+  },
+
+
+  logoutButtonDisabled: {
+    opacity: 0.6,
   },
 
 
